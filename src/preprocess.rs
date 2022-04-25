@@ -71,12 +71,12 @@ pub fn split_support(mut df: DataFrame) -> Result<DataFrame> {
     Ok(df)
 }
 
-pub fn cal_gait(mut df: DataFrame) -> Result<DataFrame> {
+pub fn cal_gait(df: & DataFrame) -> Result<DataFrame> {
     // Opt 1: hor_concat_df
     /* let new_df = hor_concat_df(&[
         df.select(["time"])?,
         df.select([DB_SUP])?.shift(1),
-        df.select([DB_SUP])?.shift(1),
+        df.select([DB_SUP])?.shift(-1),
     ])?; */
 
     // Opt 2: hstack
@@ -85,24 +85,32 @@ pub fn cal_gait(mut df: DataFrame) -> Result<DataFrame> {
         df[DB_SUP].shift(-1).rename("second").to_owned(),
     ])?; */
 
-    df = df
+    let time_df = &df
         .select(["time", DB_SUP])?
         .lazy()
         .with_column(col(DB_SUP).shift(1).alias("first"))
-        .with_column(col(DB_SUP).shift(-1).alias("second"))
-        .drop_columns([DB_SUP])
+        .with_column(col(DB_SUP).alias("second"))
+        // .drop_columns([DB_SUP])
         .with_columns(vec![
             when(not(col("first")).and(col("second")))
-                .then(lit(true))
-                .otherwise(lit(false))
+                .then(lit(1))
+                .otherwise(lit(0))
                 .alias("start"),
             when(col("first").and(not(col("second"))))
-                .then(lit(true))
-                .otherwise(lit(false))
+                .then(lit(1))
+                .otherwise(lit(0))
                 .alias("end"),
         ])
+        .drop_nulls(None)
         .collect()?;
 
-    println!("{}", df);
-    Ok(df)
+    let mut start_df = time_df.filter(&time_df.column("start")?.equal(1))?.select(["time"])?;
+    start_df.rename("time", "start time")?;
+    let mut end_df = time_df.filter(&time_df.column("end")?.equal(1))?.select(["time"])?;
+    end_df.rename("time", "end time")?;
+    let gait_df = start_df.hstack(&[
+        end_df["end time"].to_owned()
+    ])?;
+
+    Ok(gait_df)
 }
