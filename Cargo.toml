@@ -1,0 +1,13 @@
+[package]
+name = "analyze_polars"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+polars = { version="0.20.0", features=["lazy", "ndarray", "horizontal_concat"]}
+# polars-core = { version = "0.20.0", features=["ndarray"] }
+# polars-lazy = "0.20.0"
+# polars-io = { version="0.20.0", features=["json"] }
+# serde_json = "1.0"
