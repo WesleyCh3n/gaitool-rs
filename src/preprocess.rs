@@ -74,35 +74,34 @@ pub fn split_support(mut df: DataFrame) -> Result<DataFrame> {
 pub fn cal_gait(df: &DataFrame) -> Result<DataFrame> {
     // Opt 1: hor_concat_df
     /* let new_df = hor_concat_df(&[
-        df.select(["time"])?,
-        df.select([DB_SUP])?.shift(1),
-        df.select([DB_SUP])?.shift(-1),
+    df.select(["time"])?,
+    df.select([DB_SUP])?.shift(1),
+    df.select([DB_SUP])?.shift(-1),
     ])?; */
 
     // Opt 2: hstack
     /* let new_df = df.select(["time"])?.hstack(&[
-        df[DB_SUP].shift(1).rename("first").to_owned(),
-        df[DB_SUP].shift(-1).rename("second").to_owned(),
+    df[DB_SUP].shift(1).rename("first").to_owned(),
+    df[DB_SUP].shift(-1).rename("second").to_owned(),
     ])?; */
 
+    // shift double_support 1 foward as first
+    // use first == 0 & second == 1 as starting index
     let time_df = &df
         .select(["time", DB_SUP])?
         .lazy()
         .with_column(col(DB_SUP).shift(1).alias("first"))
         .with_column(col(DB_SUP).alias("second"))
-        // .drop_columns([DB_SUP])
         .with_columns(vec![
             when(not(col("first")).and(col("second")))
                 .then(lit::<i32>(1))
                 .otherwise(lit::<i32>(0))
                 .alias("start"),
-            when(col("first").and(not(col("second"))))
-                .then(lit::<i32>(1))
-                .otherwise(lit::<i32>(0))
-                .alias("end"),
         ])
         .drop_nulls(None)
+        .drop_columns([DB_SUP, "first", "second"])
         .collect()?;
+    println!("{}", time_df);
 
     // create start time every two step
     let mut s_vec = time_df
@@ -116,6 +115,7 @@ pub fn cal_gait(df: &DataFrame) -> Result<DataFrame> {
             v.push(t.unwrap());
             v
         });
+
     // insert first/last time
     s_vec.insert(0, 0f64);
     s_vec.insert(
@@ -127,4 +127,57 @@ pub fn cal_gait(df: &DataFrame) -> Result<DataFrame> {
     // start: 0 ~ last start
     // end: first start ~ last end
     Ok(df!("start" => &s_vec[..s_vec.len()-1], "end" => &s_vec[1..])?)
+}
+
+pub fn cal_step_support(df: &DataFrame, sup_type: &str) -> Result<DataFrame> {
+    // shift double_support 1 foward as first
+    // use first == 0 & second == 1 as starting index
+    // use first == 1 & second == 0 as ending index
+    let time_df = &df
+        .select(["time", sup_type])?
+        .lazy()
+        .with_column(col(sup_type).shift(1).alias("first"))
+        .with_column(col(sup_type).alias("second"))
+        .with_columns(vec![
+            when(not(col("first")).and(col("second")))
+                .then(lit::<i32>(1))
+                .otherwise(lit::<i32>(0))
+                .alias("start"),
+            when(col("first").and(not(col("second"))))
+                .then(lit::<i32>(1))
+                .otherwise(lit::<i32>(0))
+                .alias("end"),
+        ])
+        .drop_nulls(None)
+        .drop_columns([sup_type, "first", "second"])
+        .collect()?;
+
+    let s_vec = time_df
+        .filter(&time_df.column("start")?.equal(1))?
+        .select(["time"])?
+        .column("time")?
+        .f64()?
+        .into_iter()
+        .fold(Vec::new(), |mut v, t| {
+            v.push(t.unwrap());
+            v
+        });
+
+    let e_vec = time_df
+        .filter(&time_df.column("end")?.equal(1))?
+        .select(["time"])?
+        .column("time")?
+        .f64()?
+        .into_iter()
+        .fold(Vec::new(), |mut v, t| {
+            v.push(t.unwrap());
+            v
+        });
+
+    if sup_type == DB_SUP {
+        return Ok(
+            df!("start" => &s_vec[..s_vec.len()-1], "end" => &e_vec[1..])?,
+        );
+    }
+    Ok(df!("start" => s_vec, "end" => e_vec)?)
 }
