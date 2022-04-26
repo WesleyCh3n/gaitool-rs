@@ -1,50 +1,75 @@
 mod preprocess;
+mod utils;
 
 use polars::prelude::*;
+use serde_json::json;
+use std::fs::create_dir_all;
+use std::path::Path;
 
 use preprocess::*;
+use utils::*;
 
-fn save_csv(mut df: DataFrame, path: &str) {
-    let mut file = std::fs::File::create(path).unwrap();
+fn filter(file: String, save_dir: String) -> Result<()> {
+    create_dir_all(&save_dir)?;
+    let df_path = Path::new(&save_dir).join(Path::new(&file));
+    let gait_path = Path::new(&save_dir).join(Path::new("gait.csv"));
+    let ls_path = Path::new(&save_dir).join(Path::new("ls.csv"));
+    let rs_path = Path::new(&save_dir).join(Path::new("rs.csv"));
+    let db_path = Path::new(&save_dir).join(Path::new("db.csv"));
 
-    CsvWriter::new(&mut file)
-        .has_header(true)
-        .with_delimiter(b',')
-        .finish(&mut df).unwrap();
-}
+    use std::time::Instant;
+    let now = Instant::now();
+    extract_header(&file, df_path.to_str().unwrap());
+    let mut header_df =
+        CsvReader::from_path(df_path.to_str().unwrap())?.finish()?;
+    let elapsed = now.elapsed();
+    println!("Elapsed: {:.2?}", elapsed);
 
-fn filter(file: String) -> Result<()> {
+    let range = get_range(&header_df);
+    save_csv(&mut header_df, df_path.to_str().unwrap());
+
     let (ori_key, new_key) = get_keys("./name.csv")?;
+    let now = Instant::now();
     let mut df = CsvReader::from_path(file)?
         .with_skip_rows(3)
         .with_columns(Some(ori_key.clone()))
         .finish()?;
+    let elapsed = now.elapsed();
+    println!("Elapsed: {:.2?}", elapsed);
 
     rename_df(&mut df, &ori_key, &new_key)?;
-
     df = remap_contact(df)?;
-    println!("{}", df.select(["time"])?);
-    // println!("{}", df.select([LT_CONTACT, RT_CONTACT])?);
-
     df = split_support(df)?;
-    // println!("{}", df.select([DB_SUP, SG_SUP, L_SG_SUP, R_SG_SUP])?);
 
-    let _gait_df = cal_gait(&df)?;
-    println!("{}", _gait_df);
+    let mut gait_df = cal_gait(&df)?;
+    let mut ls_df = cal_step_support(&df, L_SG_SUP)?;
+    let mut rs_df = cal_step_support(&df, R_SG_SUP)?;
+    let mut db_df = cal_step_support(&df, DB_SUP)?;
 
-    let _ls_df = cal_step_support(&df, L_SG_SUP)?;
-    println!("{}", _ls_df);
-    let _rs_df = cal_step_support(&df, R_SG_SUP)?;
-    println!("{}", _rs_df);
-    let _db_df = cal_step_support(&df, DB_SUP)?;
-    println!("{}", _db_df);
+    df = df
+        .lazy()
+        .drop_columns([DB_SUP, L_SG_SUP, R_SG_SUP, SG_SUP])
+        .collect()?;
 
-    save_csv(_gait_df, "gait.csv");
-    save_csv(_db_df, "db.csv");
+    let resp_filter_api = json!({
+            "FltrFile": {
+                "rslt": append_df2header(&mut df, df_path.to_str().unwrap()),
+                "cyGt": save_csv(&mut gait_df, gait_path.to_str().unwrap()),
+                "cyLt": save_csv(&mut ls_df, ls_path.to_str().unwrap()),
+                "cyRt": save_csv(&mut rs_df, rs_path.to_str().unwrap()),
+                "cyDb": save_csv(&mut db_df, db_path.to_str().unwrap()),
+            },
+            "Range": range,
+    });
+    println!("{}", resp_filter_api.to_string());
 
     Ok(())
 }
 
 fn main() {
-    filter("./v3.18.44-en-sample.csv".to_string()).unwrap();
+    filter(
+        "./v3.18.44-en-sample.csv".to_string(),
+        "filtered".to_string(),
+    )
+    .unwrap();
 }

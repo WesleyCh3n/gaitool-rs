@@ -8,27 +8,6 @@ pub const SG_SUP: &str = "single_support";
 pub const L_SG_SUP: &str = "LT_single_support";
 pub const R_SG_SUP: &str = "RT_single_support";
 
-pub fn get_keys(path: &str) -> Result<(Vec<String>, Vec<String>)> {
-    let dict = CsvReader::from_path(path)?.finish()?;
-    let ori_key =
-        dict["Original"]
-            .utf8()?
-            .into_iter()
-            .fold(Vec::new(), |mut v, k| {
-                v.push(k.unwrap().to_string());
-                v
-            });
-    let new_key =
-        dict["New"]
-            .utf8()?
-            .into_iter()
-            .fold(Vec::new(), |mut v, k| {
-                v.push(k.unwrap().to_string());
-                v
-            });
-    return Ok((ori_key, new_key));
-}
-
 pub fn rename_df<'a>(
     df: &'a mut DataFrame,
     origs: &Vec<String>,
@@ -101,7 +80,6 @@ pub fn cal_gait(df: &DataFrame) -> Result<DataFrame> {
         .drop_nulls(None)
         .drop_columns([DB_SUP, "first", "second"])
         .collect()?;
-    println!("{}", time_df);
 
     // create start time every two step
     let mut s_vec = time_df
