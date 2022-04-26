@@ -105,7 +105,7 @@ pub fn cal_gait(df: &DataFrame) -> Result<DataFrame> {
     Ok(df!("start" => &s_vec[..s_vec.len()-1], "end" => &s_vec[1..])?)
 }
 
-pub fn cal_step_support(df: &DataFrame, sup_type: &str) -> Result<DataFrame> {
+pub fn cal_x_support(df: &DataFrame, sup_type: &str) -> Result<DataFrame> {
     // shift double_support 1 foward as first
     // use first == 0 & second == 1 as starting index
     // use first == 1 & second == 0 as ending index
