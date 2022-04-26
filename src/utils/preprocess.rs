@@ -71,12 +71,10 @@ pub fn cal_gait(df: &DataFrame) -> Result<DataFrame> {
         .lazy()
         .with_column(col(DB_SUP).shift(1).alias("first"))
         .with_column(col(DB_SUP).alias("second"))
-        .with_columns(vec![
-            when(not(col("first")).and(col("second")))
-                .then(lit::<i32>(1))
-                .otherwise(lit::<i32>(0))
-                .alias("start"),
-        ])
+        .with_columns(vec![when(not(col("first")).and(col("second")))
+            .then(lit::<i32>(1))
+            .otherwise(lit::<i32>(0))
+            .alias("start")])
         .drop_nulls(None)
         .drop_columns([DB_SUP, "first", "second"])
         .collect()?;
