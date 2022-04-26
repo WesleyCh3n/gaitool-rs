@@ -71,7 +71,7 @@ pub fn split_support(mut df: DataFrame) -> Result<DataFrame> {
     Ok(df)
 }
 
-pub fn cal_gait(df: & DataFrame) -> Result<DataFrame> {
+pub fn cal_gait(df: &DataFrame) -> Result<DataFrame> {
     // Opt 1: hor_concat_df
     /* let new_df = hor_concat_df(&[
         df.select(["time"])?,
@@ -93,24 +93,38 @@ pub fn cal_gait(df: & DataFrame) -> Result<DataFrame> {
         // .drop_columns([DB_SUP])
         .with_columns(vec![
             when(not(col("first")).and(col("second")))
-                .then(lit(1))
-                .otherwise(lit(0))
+                .then(lit::<i32>(1))
+                .otherwise(lit::<i32>(0))
                 .alias("start"),
             when(col("first").and(not(col("second"))))
-                .then(lit(1))
-                .otherwise(lit(0))
+                .then(lit::<i32>(1))
+                .otherwise(lit::<i32>(0))
                 .alias("end"),
         ])
         .drop_nulls(None)
         .collect()?;
 
-    let mut start_df = time_df.filter(&time_df.column("start")?.equal(1))?.select(["time"])?;
-    start_df.rename("time", "start time")?;
-    let mut end_df = time_df.filter(&time_df.column("end")?.equal(1))?.select(["time"])?;
-    end_df.rename("time", "end time")?;
-    let gait_df = start_df.hstack(&[
-        end_df["end time"].to_owned()
-    ])?;
+    // create start time every two step
+    let mut s_vec = time_df
+        .filter(&time_df.column("start")?.equal(1))?
+        .select(["time"])?
+        .column("time")?
+        .f64()?
+        .into_iter()
+        .step_by(2)
+        .fold(Vec::new(), |mut v, t| {
+            v.push(t.unwrap());
+            v
+        });
+    // insert first/last time
+    s_vec.insert(0, 0f64);
+    s_vec.insert(
+        s_vec.len(),
+        time_df.tail(Some(1)).column("time")?.f64()?.get(0).unwrap(),
+    );
 
-    Ok(gait_df)
+    // gait_vec
+    // start: 0 ~ last start
+    // end: first start ~ last end
+    Ok(df!("start" => &s_vec[..s_vec.len()-1], "end" => &s_vec[1..])?)
 }
