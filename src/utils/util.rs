@@ -1,4 +1,5 @@
 use polars::prelude::*;
+use serde_json::{json, Value};
 use std::io::prelude::*;
 use std::io::{LineWriter, Write};
 
@@ -73,12 +74,26 @@ pub fn append_df2header<'a>(
 }
 
 /// get range from header df
-pub fn get_range(df: &DataFrame) -> String {
+pub fn get_range(df: &DataFrame) -> Vec<Value> {
     match df.column("selection") {
         Ok(s) => match s.utf8().unwrap().get(0) {
-            Some(range) => range.to_string(),
-            None => "\"\"".to_string(),
+            Some(ranges) => {
+                let ranges = ranges
+                    .split(' ')
+                    .map(str::to_string)
+                    .collect::<Vec<String>>();
+                ranges.iter().fold(Vec::new(), |mut v, r| {
+                    let range = r
+                        .split('-')
+                        .take(2)
+                        .map(str::to_string)
+                        .collect::<Vec<String>>();
+                    v.push(json!({"Start": range[0], "End": range[1]}));
+                    v
+                })
+            }
+            None => vec![],
         },
-        Err(..) => "\"\"".to_string(),
+        Err(..) => vec![],
     }
 }

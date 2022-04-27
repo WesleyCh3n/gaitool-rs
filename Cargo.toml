@@ -11,3 +11,4 @@ polars = { version="0.20.0", features=["lazy", "ndarray", "horizontal_concat"]}
 # polars-lazy = "0.20.0"
 # polars-io = { version="0.20.0", features=["json"] }
 serde_json = "1.0"
+clap = { version = "3.1.12", features = ["derive"] }

@@ -18,15 +18,15 @@ pub fn filter(file: String, save_dir: String) -> Result<()> {
     /* read/write only header */
     extract_header(&file, df_path.to_str().unwrap());
     /* header to dataframe */
-    let mut header_df =
+    let header_df =
         CsvReader::from_path(df_path.to_str().unwrap())?.finish()?;
     /* get selection range from header */
-    let range = get_range(&header_df);
+    let sel_range = get_range(&header_df);
     /* write dataframe back to csv */
-    save_csv(&mut header_df, df_path.to_str().unwrap());
+    // save_csv(&mut header_df, df_path.to_str().unwrap());
 
     /* get remap column csv */
-    let (ori_key, new_key) = get_keys("./name.csv")?;
+    let (ori_key, new_key) = get_keys("./filter.csv")?;
     let mut df = CsvReader::from_path(file)?
         .with_skip_rows(3)
         .with_columns(Some(ori_key.clone())) // read only selected column
@@ -52,13 +52,13 @@ pub fn filter(file: String, save_dir: String) -> Result<()> {
     /* stdout result api */
     let resp_filter_api = json!({
             "FltrFile": {
-                "rslt": append_df2header(&mut df, df_path.to_str().unwrap()),
+                "rslt": save_csv(&mut df, df_path.to_str().unwrap()),
                 "cyGt": save_csv(&mut gait_df, gait_path.to_str().unwrap()),
                 "cyLt": save_csv(&mut ls_df, ls_path.to_str().unwrap()),
                 "cyRt": save_csv(&mut rs_df, rs_path.to_str().unwrap()),
                 "cyDb": save_csv(&mut db_df, db_path.to_str().unwrap()),
             },
-            "Range": range,
+            "Range": sel_range,
     }).to_string();
     println!("{}", resp_filter_api);
 
