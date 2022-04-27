@@ -48,11 +48,11 @@ pub fn filter(file: String, save_dir: String) -> Result<()> {
     let mut rs_df = cal_x_support(&df, R_SG_SUP)?;
     let mut db_df = cal_x_support(&df, DB_SUP)?;
 
-    /* drop unnessasary col in data df */
+    /* /* drop unnessasary col in data df */
     df = df
         .lazy()
         .drop_columns([DB_SUP, L_SG_SUP, R_SG_SUP, SG_SUP])
-        .collect()?;
+        .collect()?; */
 
     /* stdout result api */
     let resp_filter_api = json!({
