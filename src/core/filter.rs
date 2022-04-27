@@ -9,24 +9,29 @@ use std::path::Path;
 pub fn filter(file: String, save_dir: String) -> Result<()> {
     create_dir_all(&save_dir)?;
     /* output file path */
-    let df_path = Path::new(&save_dir).join(Path::new(&file));
-    let gait_path = Path::new(&save_dir).join(Path::new("gait.csv"));
-    let ls_path = Path::new(&save_dir).join(Path::new("ls.csv"));
-    let rs_path = Path::new(&save_dir).join(Path::new("rs.csv"));
-    let db_path = Path::new(&save_dir).join(Path::new("db.csv"));
+    let filename = Path::new(&file)
+        .file_name()
+        .expect("Err get input file stem")
+        .to_str()
+        .unwrap()
+        .to_string();
+    let saved_path = Path::new(&save_dir)
+        .join(Path::new(&filename))
+        .to_str()
+        .unwrap()
+        .to_string();
 
     /* read/write only header */
-    extract_header(&file, df_path.to_str().unwrap());
+    extract_header(&file, &saved_path);
     /* header to dataframe */
-    let header_df =
-        CsvReader::from_path(df_path.to_str().unwrap())?.finish()?;
+    let header_df = CsvReader::from_path(&saved_path)?.finish()?;
     /* get selection range from header */
     let sel_range = get_range(&header_df);
     /* write dataframe back to csv */
     // save_csv(&mut header_df, df_path.to_str().unwrap());
 
     /* get remap column csv */
-    let (ori_key, new_key) = get_keys("./filter.csv")?;
+    let (ori_key, new_key) = get_keys("./assets/filter.csv")?;
     let mut df = CsvReader::from_path(file)?
         .with_skip_rows(3)
         .with_columns(Some(ori_key.clone())) // read only selected column
@@ -52,14 +57,15 @@ pub fn filter(file: String, save_dir: String) -> Result<()> {
     /* stdout result api */
     let resp_filter_api = json!({
             "FltrFile": {
-                "rslt": save_csv(&mut df, df_path.to_str().unwrap()),
-                "cyGt": save_csv(&mut gait_df, gait_path.to_str().unwrap()),
-                "cyLt": save_csv(&mut ls_df, ls_path.to_str().unwrap()),
-                "cyRt": save_csv(&mut rs_df, rs_path.to_str().unwrap()),
-                "cyDb": save_csv(&mut db_df, db_path.to_str().unwrap()),
+                "rslt": save_csv(&mut df, &save_dir, &filename),
+                "cyGt": save_csv(&mut gait_df, &save_dir, "gait.csv"),
+                "cyLt": save_csv(&mut ls_df, &save_dir, "ls.csv"),
+                "cyRt": save_csv(&mut rs_df, &save_dir, "rs.csv"),
+                "cyDb": save_csv(&mut db_df, &save_dir, "db.csv"),
             },
             "Range": sel_range,
-    }).to_string();
+    })
+    .to_string();
     println!("{}", resp_filter_api);
 
     Ok(())

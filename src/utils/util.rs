@@ -2,6 +2,7 @@ use polars::prelude::*;
 use serde_json::{json, Value};
 use std::io::prelude::*;
 use std::io::{LineWriter, Write};
+use std::path::Path;
 
 /// get remap column name csv
 pub fn get_keys(path: &str) -> Result<(Vec<String>, Vec<String>)> {
@@ -42,22 +43,29 @@ pub fn extract_header(path: &str, output: &str) {
 }
 
 /// write df into new csv
-pub fn save_csv<'a>(mut df: &mut DataFrame, path: &'a str) -> &'a str {
-    let mut file = std::fs::File::create(path).unwrap();
+pub fn save_csv<'a>(
+    mut df: &mut DataFrame,
+    save_dir: &'a str,
+    filename: &'a str,
+) -> &'a str {
+    let file_path = Path::new(&save_dir).join(Path::new(&filename));
+    let mut file = std::fs::File::create(file_path).unwrap();
 
     CsvWriter::new(&mut file)
         .has_header(true)
         .with_delimiter(b',')
         .finish(&mut df)
         .unwrap();
-    path
+    filename
 }
 
 /// append df to header.csv
 pub fn append_df2header<'a>(
     mut df: &mut DataFrame,
-    file_path: &'a str,
+    save_dir: &'a str,
+    filename: &'a str,
 ) -> &'a str {
+    let file_path = Path::new(&save_dir).join(Path::new(&filename));
     let mut file = std::fs::OpenOptions::new()
         .append(true)
         .open(file_path)
@@ -70,7 +78,7 @@ pub fn append_df2header<'a>(
         .with_delimiter(b',')
         .finish(&mut df)
         .unwrap();
-    file_path
+    filename
 }
 
 /// get range from header df
@@ -92,7 +100,9 @@ pub fn get_range(df: &DataFrame) -> Vec<Value> {
                     v
                 })
             }
-            None => vec![],
+            None => {
+                vec![]
+            }
         },
         Err(..) => vec![],
     }
