@@ -8,11 +8,17 @@ use crate::utils::util::*;
 
 pub fn exporter(
     file: String,
-    save_dir: String, // TODO:
+    save_dir: String,
     ranges: Vec<(u32, u32)>,
 ) -> Result<()> {
     let filename = Path::new(&file)
         .file_name()
+        .expect("Err get input file name")
+        .to_str()
+        .unwrap()
+        .to_string();
+    let outfile = Path::new(&filename)
+        .file_stem()
         .expect("Err get input file stem")
         .to_str()
         .unwrap()
@@ -99,7 +105,7 @@ pub fn exporter(
 
     /* stdout result api */
     let resp_filter_api = json!({
-        "ExportFile": save_csv(&mut result_df, &save_dir, "result.csv"),
+        "ExportFile": save_csv(&mut result_df, &save_dir, &format!("{}-result.csv", outfile)),
     })
     .to_string();
     println!("{}", resp_filter_api);

@@ -1,10 +1,13 @@
 mod core;
 mod utils;
 
-use self::core::exporter::exporter;
+use self::core::export::exporter;
 use self::core::filter::filter;
 use self::core::swrite::swrite;
+use self::core::concat::concater;
+
 use clap::{Args, Parser, Subcommand};
+use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
 #[clap(name = "analyse")]
@@ -19,9 +22,11 @@ enum Commands {
     #[clap(arg_required_else_help = true)]
     Filter(Filter),
     #[clap(arg_required_else_help = true)]
+    Export(Export),
+    #[clap(arg_required_else_help = true)]
     Swrite(Swrite),
     #[clap(arg_required_else_help = true)]
-    Export(Export),
+    Concat(Concat),
 }
 
 #[derive(Debug, Args)]
@@ -30,6 +35,16 @@ struct Filter {
     file: String,
     #[clap(short, long, required = true)]
     save: String,
+}
+
+#[derive(Debug, Args)]
+struct Export {
+    #[clap(short, long, required = true)]
+    file: String,
+    #[clap(short, long, required = true)]
+    save: String,
+    #[clap(short, long, parse(try_from_str = parse_range_tuple), required = true)]
+    ranges: Vec<(u32, u32)>,
 }
 
 #[derive(Debug, Args)]
@@ -43,13 +58,11 @@ struct Swrite {
 }
 
 #[derive(Debug, Args)]
-struct Export {
+struct Concat {
+    #[clap(short, long, parse(from_os_str), required = true)]
+    files: Vec<PathBuf>,
     #[clap(short, long, required = true)]
-    file: String,
-    #[clap(short, long, required = true)]
-    save: String,
-    #[clap(short, long, parse(try_from_str = parse_range_tuple), required = true)]
-    ranges: Vec<(u32, u32)>,
+    save: PathBuf,
 }
 
 fn parse_range_tuple<T, U>(
@@ -80,6 +93,11 @@ fn main() {
         }
         Commands::Export(args) => {
             if let Err(e) = exporter(args.file, args.save, args.ranges) {
+                println!("{}", e)
+            };
+        }
+        Commands::Concat(args) => {
+            if let Err(e) = concater(args.files, args.save) {
                 println!("{}", e)
             };
         }
