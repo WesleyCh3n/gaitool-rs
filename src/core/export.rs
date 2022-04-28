@@ -1,17 +1,17 @@
 use polars::functions::hor_concat_df;
 use polars::prelude::*;
 use serde_json::json;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::utils::preprocess::*;
 use crate::utils::util::*;
 
 pub fn exporter(
-    file: String,
-    save_dir: String,
+    file: PathBuf,
+    save_dir: PathBuf,
     ranges: Vec<(u32, u32)>,
 ) -> Result<()> {
-    let filename = Path::new(&file)
+    let filename = file
         .file_name()
         .expect("Err get input file name")
         .to_str()
@@ -105,7 +105,7 @@ pub fn exporter(
 
     /* stdout result api */
     let resp_filter_api = json!({
-        "ExportFile": save_csv(&mut result_df, &save_dir, &format!("{}-result.csv", outfile)),
+        "ExportFile": save_csv(&mut result_df, &save_dir.display().to_string(), &format!("{}-result.csv", outfile)),
     })
     .to_string();
     println!("{}", resp_filter_api);
