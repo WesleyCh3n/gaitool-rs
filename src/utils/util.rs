@@ -96,7 +96,10 @@ pub fn get_range(df: &DataFrame) -> Vec<Value> {
                         .take(2)
                         .map(str::to_string)
                         .collect::<Vec<String>>();
-                    v.push(json!({"Start": range[0], "End": range[1]}));
+                    v.push(json!({
+                        "Start": range[0].parse::<f64>().unwrap(),
+                        "End": range[1].parse::<f64>().unwrap()
+                    }));
                     v
                 })
             }

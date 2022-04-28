@@ -29,14 +29,20 @@ pub fn filter(file: PathBuf, save_dir: PathBuf) -> Result<()> {
     let sel_range = get_range(&header_df);
 
     /* get remap column csv */
-    let (ori_key, new_key) = get_keys("./assets/filter.csv")?;
+    let (ori_key, new_key) = get_keys("./assets/filter-n.csv")?;
+    let (_, swrite_key) = get_keys("./assets/name.csv")?;
     let mut df = CsvReader::from_path(file)?
         .with_skip_rows(3)
-        .with_columns(Some(ori_key.clone())) // read only selected column
+        // .with_columns(Some(ori_key.clone())) // read only selected column
         .finish()?;
 
+    if df.width() > swrite_key.len() {
+        df = df.select(&ori_key)?;
+        rename_df(&mut df, &ori_key, &new_key)?;
+    } else {
+        df = df.select(&new_key)?;
+    }
     /* preprocess data df */
-    rename_df(&mut df, &ori_key, &new_key)?;
     df = remap_contact(df)?;
     df = split_support(df)?;
 
