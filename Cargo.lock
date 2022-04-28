@@ -762,6 +762,7 @@ dependencies = [
  "polars-time",
  "polars-utils",
  "rayon",
+ "regex",
 ]
 
 [[package]]

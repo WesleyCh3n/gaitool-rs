@@ -1,9 +1,9 @@
 mod core;
 mod utils;
 
+use self::core::exporter::exporter;
 use self::core::filter::filter;
 use self::core::swrite::swrite;
-use self::core::exporter::exporter;
 use clap::{Args, Parser, Subcommand};
 
 #[derive(Debug, Parser)]
@@ -61,10 +61,7 @@ where
     U: std::str::FromStr,
     U::Err: std::error::Error + Send + Sync + 'static,
 {
-    let vec = s
-        .split(' ')
-        .take(2)
-        .collect::<Vec<&str>>();
+    let vec = s.split(' ').take(2).collect::<Vec<&str>>();
     Ok((vec[0].parse()?, vec[1].parse()?))
 }
 
