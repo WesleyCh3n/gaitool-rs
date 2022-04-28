@@ -11,12 +11,14 @@ pub fn exporter(
     save_dir: PathBuf,
     ranges: Vec<(u32, u32)>,
 ) -> Result<()> {
+    /* extract file name */
     let filename = file
         .file_name()
         .expect("Err get input file name")
         .to_str()
         .unwrap()
         .to_string();
+    /* file name without suffix */
     let outfile = Path::new(&filename)
         .file_stem()
         .expect("Err get input file stem")
@@ -26,7 +28,8 @@ pub fn exporter(
 
     let mut df = CsvReader::from_path(file)?.finish()?;
 
-    let gait_df = cal_gait(&df)?; // .with_row_count("Id", None)?;
+    let gait_df = cal_gait(&df)?;
+    /* calculate every gap */
     let gait_ldf = gait_df
         .clone()
         .lazy()
@@ -45,8 +48,8 @@ pub fn exporter(
         .drop_columns([DB_SUP, L_SG_SUP, R_SG_SUP, SG_SUP])
         .collect()?;
 
-    let mut vec_ranges: Vec<(f64, f64)> = vec![];
-    let mut str_ranges: Vec<String> = vec![];
+    let mut vec_ranges: Vec<(f64, f64)> = vec![]; // for calculate valid data
+    let mut str_ranges: Vec<String> = vec![]; // for output selection
     let mut gait_ldfs = vec![];
     let mut ls_ldfs = vec![];
     let mut rs_ldfs = vec![];
@@ -64,6 +67,7 @@ pub fn exporter(
         let t_start = gait_df["start"].f64()?.get(start as usize).unwrap();
         let t_end = gait_df["start"].f64()?.get(end as usize).unwrap();
         str_ranges.push(format!("{}-{}", t_start, t_end));
+        /* add valid ranges in gait/ls/rs/db between time start/end */
         let expr = col("start")
             .gt_eq(lit(t_start))
             .and(col("start").lt(lit(t_end)));
@@ -78,6 +82,7 @@ pub fn exporter(
     let rs_mean = concat(rs_ldfs, true)?.mean().collect()?;
     let db_mean = concat(db_ldfs, true)?.mean().collect()?;
 
+    /* iter valid step get max/min amoung all col in data */
     let lazy_dfs = vec_ranges.iter().fold(Vec::new(), |mut v, (start, end)| {
         v.push(
             df.clone()
@@ -96,10 +101,14 @@ pub fn exporter(
         .mean()
         .drop_columns(&["time"])
         .collect()?;
+
+    /* basic info column */
     let info_df = df![
         "filename" => &[filename.clone()],
         "selection" => &[str_ranges.join(" ")],
     ]?;
+
+    /* concat all column */
     let mut result_df =
         hor_concat_df(&[info_df, gt_mean, ls_mean, rs_mean, db_mean, data_df])?;
 
