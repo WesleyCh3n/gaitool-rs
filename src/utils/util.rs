@@ -7,22 +7,20 @@ use std::path::Path;
 /// get remap column name csv
 pub fn get_keys(path: &str) -> Result<(Vec<String>, Vec<String>)> {
     let dict = CsvReader::from_path(path)?.finish()?;
-    let ori_key =
-        dict["Original"]
-            .utf8()?
-            .into_iter()
-            .fold(Vec::new(), |mut v, k| {
-                v.push(k.unwrap().to_string());
-                v
-            });
-    let new_key =
-        dict["New"]
-            .utf8()?
-            .into_iter()
-            .fold(Vec::new(), |mut v, k| {
-                v.push(k.unwrap().to_string());
-                v
-            });
+    let ori_key = dict["Original"].utf8()?.into_iter().fold(
+        Vec::with_capacity(dict.height()),
+        |mut v, k| {
+            v.push(k.unwrap().to_string());
+            v
+        },
+    );
+    let new_key = dict["New"].utf8()?.into_iter().fold(
+        Vec::with_capacity(dict.height()),
+        |mut v, k| {
+            v.push(k.unwrap().to_string());
+            v
+        },
+    );
     return Ok((ori_key, new_key));
 }
 
@@ -90,18 +88,21 @@ pub fn get_range(df: &DataFrame) -> Vec<Value> {
                     .split(' ')
                     .map(str::to_string)
                     .collect::<Vec<String>>();
-                ranges.iter().fold(Vec::new(), |mut v, r| {
-                    let range = r
-                        .split('-')
-                        .take(2)
-                        .map(str::to_string)
-                        .collect::<Vec<String>>();
-                    v.push(json!({
-                        "Start": range[0].parse::<f64>().unwrap(),
-                        "End": range[1].parse::<f64>().unwrap()
-                    }));
-                    v
-                })
+                ranges.iter().fold(
+                    Vec::with_capacity(ranges.len()),
+                    |mut v, r| {
+                        let range = r
+                            .split('-')
+                            .take(2)
+                            .map(str::to_string)
+                            .collect::<Vec<String>>();
+                        v.push(json!({
+                            "Start": range[0].parse::<f64>().unwrap(),
+                            "End": range[1].parse::<f64>().unwrap()
+                        }));
+                        v
+                    },
+                )
             }
             None => {
                 vec![]

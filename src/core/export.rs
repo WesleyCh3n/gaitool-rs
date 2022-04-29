@@ -83,20 +83,23 @@ pub fn exporter(
     let db_mean = concat(db_ldfs, true)?.mean().collect()?;
 
     /* iter valid step get max/min amoung all col in data */
-    let lazy_dfs = vec_ranges.iter().fold(Vec::new(), |mut v, (start, end)| {
-        v.push(
-            df.clone()
-                .lazy()
-                .filter(
-                    col("time")
-                        .gt_eq(lit(*start))
-                        .and(col("time").lt(lit(*end))),
-                )
-                .with_column(all().exclude(&["time"]).max().suffix("_max"))
-                .with_column(all().exclude(&["time"]).min().suffix("_min")),
-        );
-        v
-    });
+    let lazy_dfs = vec_ranges.iter().fold(
+        Vec::with_capacity(vec_ranges.len()),
+        |mut v, (start, end)| {
+            v.push(
+                df.clone()
+                    .lazy()
+                    .filter(
+                        col("time")
+                            .gt_eq(lit(*start))
+                            .and(col("time").lt(lit(*end))),
+                    )
+                    .with_column(all().exclude(&["time"]).max().suffix("_max"))
+                    .with_column(all().exclude(&["time"]).min().suffix("_min")),
+            );
+            v
+        },
+    );
     let data_df = concat(lazy_dfs, true)?
         .mean()
         .drop_columns(&["time"])
