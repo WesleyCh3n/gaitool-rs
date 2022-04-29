@@ -22,5 +22,5 @@ jobs:
           cp ./target/release/analyze_polars ./bin/
       - uses: actions/download-artifact@v3
         with:
-          name: analyze_polars
-          path: ./target/release/analyze_polars
+          name: analyze
+          path: ./bin
