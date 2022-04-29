@@ -27,9 +27,12 @@ jobs:
         with:
           command: build
           args: --release
+      - name: cp release file
+        run: |
+          cp ./target/release/analyze_polars${{ matrix.suffix }} ./
       - uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.target }}
           path: |
-            ./target/release/analyze_polars${{ matrix.suffix }}
+            ./analyze_polars${{ matrix.suffix }}
             ./assets
