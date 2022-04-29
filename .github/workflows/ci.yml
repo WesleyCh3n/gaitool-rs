@@ -16,8 +16,10 @@ jobs:
         with:
           command: build
           args: --release
-      - name: Display structure of downloaded files
-        run: ls -R
+      - name: copy to bin
+        run: |
+          mkdir -p ./bin
+          cp ./target/release/analyze_polars ./bin/
       - uses: actions/download-artifact@v3
         with:
           name: analyze_polars
