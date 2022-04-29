@@ -4,8 +4,8 @@ on:
 name: CI
 
 jobs:
-  build:
-    name: Build project
+  build_linux:
+    name: Build Linux x86_64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -16,19 +16,35 @@ jobs:
         with:
           command: build
           args: --release
-      - name: copy to bin
+      - name: Tar release file
         run: |
-          mkdir -p ./bin
-          cp ./target/release/analyze_polars ./bin/
+          tar -cvf analyze_linux_x86_64.tar ./target/release/analyze_polars
       - uses: actions/upload-artifact@v3
         with:
-          name: analyze
-          path: ./bin
-  release:
-    name: Release project
+          name: analyze_linux_x86_64
+          path: analyze_linux_x86_64.tar
+  build_windows:
+    name: Build Windows x86_64
     runs-on: ubuntu-latest
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v3
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
         with:
-          name: analyze
+          toolchain: stable
+          target: x86_64-pc-windows-gnu
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --target x86_64-pc-windows-gnu
+      - name: list dir
+        run: |
+          ls ./target/release/analyze_polars
+      - name: Tar release file
+        run: |
+          tar -cvf analyze_Windows_x86_64.tar ./target/release/analyze_polars
+      - uses: actions/upload-artifact@v3
+        with:
+          name: analyze_Windows_x86_64
+          path: analyze_Windows_x86_64.tar
