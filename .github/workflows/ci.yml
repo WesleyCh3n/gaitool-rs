@@ -27,10 +27,9 @@ jobs:
         with:
           command: build
           args: --release
-      - name: Tar release file
-        run: |
-          tar -cvf ${{ matrix.target }}.tar ./target/release/analyze_polars${{ matrix.suffix }} ./assets/
       - uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.target }}
-          path: ${{ matrix.target }}.tar
+          path: |
+            ./target/release/analyze_polars${{ matrix.suffix }}
+            ./assets
