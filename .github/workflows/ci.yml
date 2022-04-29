@@ -21,4 +21,4 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: analyze_polars
-          path: target/release/analyze_polars
+          path: ./target/release/analyze_polars
