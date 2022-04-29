@@ -4,9 +4,17 @@ on:
 name: CI
 
 jobs:
-  build_linux:
-    name: Build Linux x86_64
-    runs-on: ubuntu-latest
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            suffix: ''
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            suffix: .exe
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -16,35 +24,13 @@ jobs:
         with:
           command: build
           args: --release
-      - name: Tar release file
-        run: |
-          tar -cvf analyze_linux_x86_64.tar ./target/release/analyze_polars
-      - uses: actions/upload-artifact@v3
-        with:
-          name: analyze_linux_x86_64
-          path: analyze_linux_x86_64.tar
-  build_windows:
-    name: Build Windows x86_64
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: x86_64-pc-windows-gnu
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --release --target x86_64-pc-windows-gnu
       - name: list dir
         run: |
-          ls ./target/release/analyze_polars
-      - name: Tar release file
-        run: |
-          tar -cvf analyze_Windows_x86_64.tar ./target/release/analyze_polars
+          ls -R
+      # - name: Tar release file
+      #   run: |
+      #     tar -cvf ${{ matrix.target }}.tar ./target/release/analyze_polars${{ matrix.suffix }}
       - uses: actions/upload-artifact@v3
         with:
-          name: analyze_Windows_x86_64
-          path: analyze_Windows_x86_64.tar
+          name: ${{ matrix.target }}
+          path: ./target/release/analyze_polars${{ matrix.suffix }}
