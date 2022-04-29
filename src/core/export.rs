@@ -71,7 +71,7 @@ pub fn exporter(
         let expr = col("start")
             .gt_eq(lit(t_start))
             .and(col("start").lt(lit(t_end)));
-        let sel_col = &[col("^*mean$")];
+        let sel_col = &[col("^.*mean$")];
         gait_ldfs.push(gait_ldf.clone().filter(expr.clone()).select(sel_col));
         ls_ldfs.push(ls_ldf.clone().filter(expr.clone()).select(sel_col));
         rs_ldfs.push(rs_ldf.clone().filter(expr.clone()).select(sel_col));

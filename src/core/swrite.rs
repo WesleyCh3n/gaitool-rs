@@ -39,7 +39,7 @@ pub fn swrite(
     save_csv(&mut header_df, &save_dir.display().to_string(), &filename);
 
     /* get remap column csv */
-    let (ori_key, new_key) = get_keys("./assets/name.csv")?;
+    let (ori_key, new_key) = get_keys("./assets/all.csv")?;
     let mut df = CsvReader::from_path(file)?
         .with_skip_rows(3)
         .with_columns(Some(ori_key.clone())) // read only selected column
