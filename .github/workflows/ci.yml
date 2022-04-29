@@ -5,7 +5,7 @@ name: CI
 
 jobs:
   build:
-    name: Rust project
+    name: Build project
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -20,7 +20,15 @@ jobs:
         run: |
           mkdir -p ./bin
           cp ./target/release/analyze_polars ./bin/
-      - uses: actions/download-artifact@v3
+      - uses: actions/upload-artifact@v3
         with:
           name: analyze
           path: ./bin
+  release:
+    name: Release project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/donwload-artifact@v3
+        with:
+          name: analyze
