@@ -68,6 +68,7 @@ jobs:
           name: ${{ steps.get_repository_name.outputs.REPO_NAME }}-${{ matrix.target }}
           path: |
             ${{ steps.get_repository_name.outputs.REPO_NAME }}-${{ matrix.target }}.${{ matrix.comp_type }}
+          retention-days: 5
 
   pre-release:
     needs: build
