@@ -60,8 +60,8 @@ jobs:
           args: --release
       - name: Compress things up
         run: |
-          cp ./target/release/analyze_polars${{ matrix.suffix }} ./
-          ${{ matrix.comp_er }} ${{ matrix.comp_args }} ${{ steps.get_repository_name.outputs.REPO_NAME }}-${{ matrix.target }}.${{ matrix.comp_type }} analyze_polars${{ matrix.suffix }} assets/
+          cp ./target/release/analyze-rs${{ matrix.suffix }} ./
+          ${{ matrix.comp_er }} ${{ matrix.comp_args }} ${{ steps.get_repository_name.outputs.REPO_NAME }}-${{ matrix.target }}.${{ matrix.comp_type }} analyze-rs${{ matrix.suffix }} assets/
           ls
       - uses: actions/upload-artifact@v3
         with:
