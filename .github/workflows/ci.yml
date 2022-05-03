@@ -11,15 +11,27 @@ jobs:
           - os: macos-latest
             target: x86_64-apple-darwin
             suffix: ''
+            comp_er: tar
+            comp_args: -cvf
+            comp_type: tar.gz
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             suffix: ''
+            comp_er: tar
+            comp_args: -cvf
+            comp_type: tar.gz
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             suffix: .exe
+            comp_er: 7z
+            comp_args: 'a -tzip'
+            comp_type: zip
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
+      - id: get_repository_name
+        run: echo ::set-output name=REPO_NAME::${{ github.event.repository.name }}
+        shell: bash
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -27,12 +39,42 @@ jobs:
         with:
           command: build
           args: --release
-      - name: cp release file
+      - name: Compress things up
         run: |
           cp ./target/release/analyze_polars${{ matrix.suffix }} ./
+          ${{ matrix.comp_er }} ${{ matrix.comp_args }} ${{ steps.get_repository_name.outputs.REPO_NAME }}-${{ matrix.target }}.${{ matrix.comp_type }} analyze_polars${{ matrix.suffix }} assets/
+          ls
       - uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.target }}
+          name: ${{ steps.get_repository_name.outputs.REPO_NAME }}-${{ matrix.target }}
           path: |
-            ./analyze_polars${{ matrix.suffix }}
-            ./assets
+            ${{ steps.get_repository_name.outputs.REPO_NAME }}-${{ matrix.target }}.${{ matrix.comp_type }}
+
+  pre-release:
+    needs: build
+    name: "Pre-release"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - id: get_repository_name
+        run: echo ::set-output name=REPO_NAME::${{ github.event.repository.name }}
+        shell: bash
+      - uses: actions/download-artifact@master
+        with:
+          name: ${{ steps.get_repository_name.outputs.REPO_NAME }}-x86_64-apple-darwin
+      - uses: actions/download-artifact@master
+        with:
+          name: ${{ steps.get_repository_name.outputs.REPO_NAME }}-x86_64-unknown-linux-gnu
+      - uses: actions/download-artifact@master
+        with:
+          name: ${{ steps.get_repository_name.outputs.REPO_NAME }}-x86_64-pc-windows-msvc
+      - uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          automatic_release_tag: "latest"
+          prerelease: true
+          title: "Development Build"
+          files: |
+            ${{ steps.get_repository_name.outputs.REPO_NAME }}-x86_64-apple-darwin.tar.gz
+            ${{ steps.get_repository_name.outputs.REPO_NAME }}-x86_64-unknown-linux-gnu.tar.gz
+            ${{ steps.get_repository_name.outputs.REPO_NAME }}-x86_64-pc-windows-msvc.zip
