@@ -1,11 +1,15 @@
-## Analyze
+# Analyze Gait
+
+[![Continuous Integration](https://github.com/WesleyCh3n/analyze.rs/actions/workflows/ci.yml/badge.svg)](https://github.com/WesleyCh3n/analyze.rs/actions/workflows/ci.yml)
 
 This is a command line tools to analyze human's gait data, including
 preprocessing, calculating gait cycle, remapping columns etc. Then
 the output is valid json api to
 [analyze.api](https://github.com/wesleych3n/analyze.api/).
 
-## Usage
+## Getting Started
+
+### Usage
 
 ```shell
 USAGE:
@@ -22,7 +26,7 @@ help      Print this message or the help of the given subcommand(s)
   swrite
   ```
 
-### filter
+#### filter
 
 Specify `-f` input data and `-s` save directory. To filter raw/remapped data
 (including info header), then output valid data.
@@ -46,7 +50,7 @@ Example output:
 }
 ```
 
-### export
+#### export
 
 Specify `-f` input data, `-s` save directory and `-r` follow by string with two
 number with a space separated to select valid range in gait cycle (able to
@@ -62,7 +66,7 @@ Example output:
 {"ExportFile": "sample-result.csv"}
 ```
 
-### swrite
+#### swrite
 
 Specify `-f` input data, `-s` save directory and `-v` follow by a string which
 is valid time range, a space separate each range and `-` in each range.
@@ -78,7 +82,7 @@ Example output:
 {"CleanFile":"sample.csv"}
 ```
 
-### concat
+#### concat
 
 Specify `-f` input data (multiple), `-s` save directory. To concatenate
 multiple export result in one file.
