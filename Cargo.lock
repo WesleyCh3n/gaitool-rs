@@ -23,8 +23,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "analyze_polars"
-version = "0.1.0"
+name = "analyze_rs"
+version = "1.0.0"
 dependencies = [
  "clap",
  "polars",

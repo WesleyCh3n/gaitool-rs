@@ -34,8 +34,8 @@ use std::path::PathBuf;
 ///
 
 #[derive(Debug, Parser)]
-#[clap(name = "analyse")]
-#[clap(about = "analyse gait", long_about = None)]
+#[clap(name = "analyze-rs")]
+#[clap(about = "analyze human GAIT cycle", long_about = None)]
 struct Cli {
     #[clap(subcommand)]
     command: Commands,

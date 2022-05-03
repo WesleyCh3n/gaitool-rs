@@ -9,7 +9,7 @@ the output is valid json api to
 
 ```shell
 USAGE:
-analyze <SUBCOMMAND>
+analyze-rs <SUBCOMMAND>
 
 OPTIONS:
 -h, --help    Print help information
@@ -29,7 +29,7 @@ Specify `-f` input data and `-s` save directory. To filter raw/remapped data
 
 Example input:
 ```shell
-analyze filter -f ./file/raw/sample.csv -s file/csv
+analyze-rs filter -f ./file/raw/sample.csv -s file/csv
 ```
 
 Example output:
@@ -54,7 +54,7 @@ select multiple ranges). To export each node max/min mean in valid gait cycle.
 
 Example input:
 ```shell
-analyze.rs export -f file/csv/sample.csv -s file/export -r "1 12" -r "25 33"
+analyze-rs export -f file/csv/sample.csv -s file/export -r "1 12" -r "25 33"
 ```
 
 Example output:
@@ -70,7 +70,7 @@ To write the valid selection time to new columns selected file.
 
 Example input:
 ```shell
-analyze.rs swrite -f file/raw/sample.csv -s file/export -v "4.37-15.965 18.06-22.00"
+analyze-rs swrite -f file/raw/sample.csv -s file/export -v "4.37-15.965 18.06-22.00"
 ```
 
 Example output:
@@ -85,7 +85,7 @@ multiple export result in one file.
 
 Example input:
 ```shell
-analyze.rs concat -f file/export/sample-result-1.csv -f file/export/sample-result-2.csv -s file/export
+analyze-rs concat -f file/export/sample-result-1.csv -f file/export/sample-result-2.csv -s file/export
 ```
 
 Example output:
