@@ -42,11 +42,14 @@ pub fn swrite(
     let (ori_key, new_key) = get_keys("./assets/all.csv")?;
     let mut df = CsvReader::from_path(file)?
         .with_skip_rows(3)
-        .with_columns(Some(ori_key.clone())) // read only selected column
+        // .with_columns(Some(ori_key.clone())) // read only selected column
         .finish()?;
 
     /* preprocess data df */
-    rename_df(&mut df, &ori_key, &new_key)?;
+    if df.width() > new_key.len() {
+        df = df.select(&ori_key)?; // select original key
+        rename_df(&mut df, &ori_key, &new_key)?;
+    }
 
     /* stdout result api */
     let resp_filter_api = json!({
