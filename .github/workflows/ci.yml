@@ -1,7 +1,14 @@
-on:
-  workflow_dispatch:
+---
+name: "Continuous Integration"
 
-name: CI
+on:
+  push:
+    paths:
+      - 'src/**'
+      - 'assets/**'
+      - '.github/workflows/**'
+    branches:
+      - "main"
 
 jobs:
   build:
@@ -32,6 +39,18 @@ jobs:
       - id: get_repository_name
         run: echo ::set-output name=REPO_NAME::${{ github.event.repository.name }}
         shell: bash
+      - uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions/cache@v1
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
