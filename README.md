@@ -11,7 +11,7 @@ the output is valid json api to
 
 ### Usage
 
-```shell
+```
 USAGE:
 analyze-rs <SUBCOMMAND>
 
@@ -21,10 +21,10 @@ OPTIONS:
 SUBCOMMANDS:
 concat
 export
-  filter
+filter
 help      Print this message or the help of the given subcommand(s)
-  swrite
-  ```
+swrite
+```
 
 #### filter
 
