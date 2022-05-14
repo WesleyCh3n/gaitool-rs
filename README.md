@@ -104,7 +104,7 @@ middle of the gait.
 
 Example input:
 ```shell
-analyze-rs split -f files/ -s save_dir/ -p 75
+analyze-rs split -f files_dir/ -s save_dir/ -p 75
 ```
 
 Example output:
