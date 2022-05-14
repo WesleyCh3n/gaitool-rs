@@ -1,10 +1,10 @@
 mod core;
 mod utils;
 
+use self::core::concat::concater;
 use self::core::export::exporter;
 use self::core::filter::filter;
 use self::core::swrite::swrite;
-use self::core::concat::concater;
 use self::core::split::split;
 
 use clap::{Args, Parser, Subcommand};
@@ -12,7 +12,7 @@ use std::path::PathBuf;
 
 ///
 /// Example command and output
-/// Command: ./bin/analyze_polars filter -f ./file/raw/v3.18.44-en-sample.csv -s file/csv
+/// Command: analyze-rs filter -f ./file/raw/v3.18.44-en-sample.csv -s file/csv
 /// Response: {
 ///     "FltrFile":{
 ///         "cyDb":"db.csv",
@@ -24,13 +24,13 @@ use std::path::PathBuf;
 ///     "Range":[{"End":15.965,"Start":4.37},{"End":35.755,"Start":25.375}]
 /// }
 ///
-/// Command:  ./bin/analyze_polars export -f file/csv/v3.18.44-en-sample.csv -s file/export -r 1 12
+/// Command:  analyze-rs export -f file/csv/v3.18.44-en-sample.csv -s file/export -r "1 12" -r "15 22"
 /// Response: {"ExportFile":"v3.18.44-en-sample-result.csv"}
 ///
-/// Command:  ./bin/analyze_polars swrite -f file/raw/v3.18.44-en-sample.csv -s file/cleaning -v 4.37-15.965
+/// Command:  analyze-rs swrite -f file/raw/v3.18.44-en-sample.csv -s file/cleaning -v 4.37-15.965
 /// Response: {"CleanFile":"v3.18.44-en-sample.csv"}
 ///
-/// Command:  ./bin/analyze_polars concat -f file/export/v3.18.44-en-sample-result.csv -f file/export/v3.18.44-en-sample-result.csv -s file/export
+/// Command:  analyze-rs concat -f file/export/v3.18.44-en-sample-result.csv -f file/export/v3.18.44-en-sample-result.csv -s file/export
 /// Response: {"ConcatFile":"concat.csv"}
 ///
 
@@ -44,12 +44,16 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
+    /// filter raw file
     #[clap(arg_required_else_help = true)]
     Filter(Filter),
+    /// export calculation in selection range
     #[clap(arg_required_else_help = true)]
     Export(Export),
+    /// write selection range into raw file
     #[clap(arg_required_else_help = true)]
     Swrite(Swrite),
+    /// concat export files
     #[clap(arg_required_else_help = true)]
     Concat(Concat),
     #[clap(arg_required_else_help = true)]
@@ -58,36 +62,46 @@ enum Commands {
 
 #[derive(Debug, Args)]
 struct Filter {
+    /// input file
     #[clap(short, long, required = true)]
     file: PathBuf,
+    /// output directory
     #[clap(short, long, required = true)]
     save: PathBuf,
 }
 
 #[derive(Debug, Args)]
 struct Export {
+    /// input file
     #[clap(short, long, required = true)]
     file: PathBuf,
+    /// output directory
     #[clap(short, long, required = true)]
     save: PathBuf,
+    /// selection range index. e.g. "2 5"
     #[clap(short, long, parse(try_from_str = parse_range_tuple), required = true)]
     ranges: Vec<(u32, u32)>,
 }
 
 #[derive(Debug, Args)]
 struct Swrite {
+    /// input file
     #[clap(short, long, required = true)]
     file: PathBuf,
+    /// output directory
     #[clap(short, long, required = true)]
     save: PathBuf,
+    /// selection values to write
     #[clap(short, long, required = true)]
     value: String,
 }
 
 #[derive(Debug, Args)]
 struct Concat {
+    /// inputs file (can be multiple, e.g. "-f file1 -f file2")
     #[clap(short, long, parse(from_os_str), required = true)]
-    files: Vec<PathBuf>,
+    file: Vec<PathBuf>,
+    /// output directory
     #[clap(short, long, required = true)]
     save: PathBuf,
 }
@@ -131,7 +145,7 @@ fn main() {
             };
         }
         Commands::Concat(args) => {
-            if let Err(e) = concater(args.files, args.save) {
+            if let Err(e) = concater(args.file, args.save) {
                 println!("{}", e)
             };
         }
