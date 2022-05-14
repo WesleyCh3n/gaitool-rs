@@ -1,16 +1,36 @@
 use crate::utils::preprocess::*;
 use crate::utils::util::*;
 
+use indicatif::ProgressBar;
 use polars::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub fn split(file_dir: PathBuf, save_dir: PathBuf) -> Result<()> {
+pub fn split(
+    file_dir: PathBuf,
+    save_dir: PathBuf,
+    percent: usize,
+) -> Result<()> {
     let paths = fs::read_dir(file_dir)?;
-    for path in paths {
+    let names = paths
+        .filter_map(|entry| {
+            entry.ok().and_then(|e| {
+                e.path()
+                    .file_name()
+                    .and_then(|n| n.to_str().map(|s| String::from(s)))
+            })
+        })
+        .collect::<Vec<String>>();
+    let pb = ProgressBar::new(names.len() as u64);
+    for file in names {
         /* read file */
-        let file = path?.path();
+        pb.inc(1);
         /* TODO: check type */
+        let name_vec = file.split("-").collect::<Vec<&str>>();
+        // println!("{:#?}", name_vec[6] == "2");
+        if name_vec[6] != "2" {
+            break;
+        }
         let filename = Path::new(&file)
             .file_name()
             .expect("Err get input file stem")
@@ -39,22 +59,37 @@ pub fn split(file_dir: PathBuf, save_dir: PathBuf) -> Result<()> {
         df = split_support(df)?;
 
         /* get support df */
-        let mut gait_df = cal_gait(&df)?;
-        println!("{}", gait_df);
+        let gait_df = cal_gait(&df)?;
+        // let gait_df = gait_df.with_row_count("Id", None)?;
+        let middle = gait_df.height() / 2;
+        let range = gait_df.height() * percent / 100;
+        let start = middle - range / 2;
+        let gait_df = gait_df.slice(start as i64, range);
+        let range_value = format!(
+            "{}-{}",
+            gait_df
+                .column("start")?
+                .head(Some(1))
+                .f64()?
+                .get(0)
+                .unwrap(),
+            gait_df.column("end")?.tail(Some(1)).f64()?.get(0).unwrap()
+        );
 
         /* read/write only header */
-        extract_header(&file.display().to_string(), &saved_path);
+        extract_header(&file, &saved_path);
         /* header to dataframe */
         let mut header_df = CsvReader::from_path(&saved_path)?.finish()?;
         /* write range to selection column */
         header_df = header_df
             .lazy()
-            // .with_column(lit(range_value).alias("selection"))
+            .with_column(lit(range_value).alias("selection"))
             .drop_columns(["last_name", "first_name"])
             .collect()?;
         /* save modidied header to csv */
         save_csv(&mut header_df, &save_dir.display().to_string(), &filename);
         append_df2header(&mut df, &save_dir.display().to_string(), &filename);
     }
+    println!("");
     Ok(())
 }

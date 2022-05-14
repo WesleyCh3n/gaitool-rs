@@ -112,6 +112,8 @@ struct Split {
     file_dir: PathBuf,
     #[clap(short, long, required = true)]
     save: PathBuf,
+    #[clap(short, long, required = true)]
+    percent: usize,
 }
 fn parse_range_tuple<T, U>(
     s: &str,
@@ -150,7 +152,7 @@ fn main() {
             };
         }
         Commands::Split(args) => {
-            if let Err(e) = split(args.file_dir, args.save) {
+            if let Err(e) = split(args.file_dir, args.save, args.percent) {
                 println!("{}", e)
             };
         }
