@@ -5,6 +5,7 @@ use self::core::export::exporter;
 use self::core::filter::filter;
 use self::core::swrite::swrite;
 use self::core::concat::concater;
+use self::core::split::split;
 
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
@@ -51,6 +52,8 @@ enum Commands {
     Swrite(Swrite),
     #[clap(arg_required_else_help = true)]
     Concat(Concat),
+    #[clap(arg_required_else_help = true)]
+    Split(Split),
 }
 
 #[derive(Debug, Args)]
@@ -89,6 +92,13 @@ struct Concat {
     save: PathBuf,
 }
 
+#[derive(Debug, Args)]
+struct Split {
+    #[clap(short, long, required = true)]
+    file_dir: PathBuf,
+    #[clap(short, long, required = true)]
+    save: PathBuf,
+}
 fn parse_range_tuple<T, U>(
     s: &str,
 ) -> Result<(T, U), Box<dyn std::error::Error + Send + Sync + 'static>>
@@ -122,6 +132,11 @@ fn main() {
         }
         Commands::Concat(args) => {
             if let Err(e) = concater(args.files, args.save) {
+                println!("{}", e)
+            };
+        }
+        Commands::Split(args) => {
+            if let Err(e) = split(args.file_dir, args.save) {
                 println!("{}", e)
             };
         }
