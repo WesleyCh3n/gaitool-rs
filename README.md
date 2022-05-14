@@ -97,3 +97,18 @@ Example output:
 {"ConcatFile":"concat.csv"}
 ```
 
+#### split
+
+Specify `-f` input data directory, `-s` save directory `-p` percentage from
+middle of the gait.
+
+Example input:
+```shell
+analyze-rs split -f files/ -s save_dir/ -p 75
+```
+
+Example output:
+```shell
+█████████████████████████████████████████████████████████████████████████ 30/30
+```
+
