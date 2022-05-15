@@ -45,7 +45,7 @@ pub fn split_support(mut df: DataFrame) -> Result<DataFrame> {
             col(LT_CONTACT).and(col(SG_SUP)).alias(L_SG_SUP),
             col(RT_CONTACT).and(col(SG_SUP)).alias(R_SG_SUP),
         ])
-        .drop_columns([LT_CONTACT, RT_CONTACT])
+        // .drop_columns([LT_CONTACT, RT_CONTACT])
         .collect()?;
     Ok(df)
 }
