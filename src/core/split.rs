@@ -11,8 +11,9 @@ pub fn split(
     save_dir: PathBuf,
     percent: usize,
 ) -> Result<()> {
-    let paths = fs::read_dir(file_dir)?;
-    let names = paths
+    let paths = fs::read_dir(&file_dir)?;
+    let names = fs::read_dir(&file_dir)?;
+    let names = names
         .filter_map(|entry| {
             entry.ok().and_then(|e| {
                 e.path()
@@ -22,15 +23,12 @@ pub fn split(
         })
         .collect::<Vec<String>>();
     let pb = ProgressBar::new(names.len() as u64);
-    for file in names {
+    for file in paths {
+        let file = file?;
+        let file = file.path();
+        let file = file.display().to_string();
         /* read file */
         pb.inc(1);
-        /* TODO: check type */
-        let name_vec = file.split("-").collect::<Vec<&str>>();
-        // println!("{:#?}", name_vec[6] == "2");
-        if name_vec[6] != "1" {
-            continue;
-        }
         let filename = Path::new(&file)
             .file_name()
             .expect("Err get input file stem")
@@ -42,6 +40,11 @@ pub fn split(
             .to_str()
             .unwrap()
             .to_string();
+        /* TODO: check type */
+        let name_vec = filename.split("-").collect::<Vec<&str>>();
+        if name_vec[6] == "1" {
+            continue;
+        }
 
         /* get remap column csv */
         let (ori_key, new_key) = get_keys("./assets/all.csv")?;
@@ -90,6 +93,5 @@ pub fn split(
         save_csv(&mut header_df, &save_dir.display().to_string(), &filename);
         append_df2header(&mut df, &save_dir.display().to_string(), &filename);
     }
-    println!("");
     Ok(())
 }
