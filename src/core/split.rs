@@ -28,7 +28,7 @@ pub fn split(
         /* TODO: check type */
         let name_vec = file.split("-").collect::<Vec<&str>>();
         // println!("{:#?}", name_vec[6] == "2");
-        if name_vec[6] != "2" {
+        if name_vec[6] != "1" {
             continue;
         }
         let filename = Path::new(&file)
