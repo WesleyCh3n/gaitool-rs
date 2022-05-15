@@ -29,7 +29,7 @@ pub fn split(
         let name_vec = file.split("-").collect::<Vec<&str>>();
         // println!("{:#?}", name_vec[6] == "2");
         if name_vec[6] != "2" {
-            break;
+            continue;
         }
         let filename = Path::new(&file)
             .file_name()
