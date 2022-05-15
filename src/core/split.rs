@@ -58,6 +58,7 @@ pub fn split(
             rename_df(&mut df, &ori_key, &new_key)?;
         }
         /* preprocess data df */
+        let mut export_df = df.clone();
         df = remap_contact(df)?;
         df = split_support(df)?;
 
@@ -91,7 +92,11 @@ pub fn split(
             .collect()?;
         /* save modidied header to csv */
         save_csv(&mut header_df, &save_dir.display().to_string(), &filename);
-        append_df2header(&mut df, &save_dir.display().to_string(), &filename);
+        append_df2header(
+            &mut export_df,
+            &save_dir.display().to_string(),
+            &filename,
+        );
     }
     Ok(())
 }
