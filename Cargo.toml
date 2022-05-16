@@ -7,10 +7,6 @@ repository = "https://github.com/WesleyCh3n/analyze.rs"
 description = "Analyze Human GAIT cycle"
 authors = ["Wesley Chen <wesley.ch3n.0530@gmail.com>"]
 
-[[bin]]
-name = "analyze-rs"
-path = "src/main.rs"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
