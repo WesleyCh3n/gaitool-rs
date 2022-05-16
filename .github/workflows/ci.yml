@@ -34,6 +34,7 @@ jobs:
             comp_args: 'a -tzip'
             comp_type: zip
     runs-on: ${{ matrix.os }}
+    name: compile ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v2
       - id: get_repository_name
