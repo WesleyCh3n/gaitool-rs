@@ -3,7 +3,7 @@ use crate::utils::util::*;
 
 use indicatif::ProgressBar;
 use polars::prelude::*;
-use std::fs;
+use std::fs::{self, create_dir_all};
 use std::path::{Path, PathBuf};
 
 pub fn split(
@@ -11,6 +11,7 @@ pub fn split(
     save_dir: PathBuf,
     percent: usize,
 ) -> Result<()> {
+    create_dir_all(&save_dir)?;
     let paths = fs::read_dir(&file_dir)?;
     let names = fs::read_dir(&file_dir)?;
     let names = names
@@ -42,6 +43,9 @@ pub fn split(
             .to_string();
         /* TODO: check type */
         let name_vec = filename.split("-").collect::<Vec<&str>>();
+        if name_vec.len() < 10 {
+            continue;
+        }
         if name_vec[6] == "1" {
             continue;
         }
