@@ -58,7 +58,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release
+          args: --release --bin analyze-rs
       - name: Compress things up
         run: |
           cp ./target/release/analyze-rs${{ matrix.suffix }} ./
