@@ -29,28 +29,38 @@ pub fn filter(file: PathBuf, save_dir: PathBuf) -> Result<()> {
     let sel_range = get_range(&header_df);
 
     /* get remap column csv */
-    let (ori_key, new_key) = get_keys("./assets/filter.csv")?;
-    let (_, swrite_key) = get_keys("./assets/all.csv")?;
+    // let (ori_key, new_key) = get_keys("./assets/filter.csv")?;
+    let dict = CsvReader::from_path("./assets/filter.csv")?.finish()?;
+    let filter_key = dict["New"].utf8()?.into_iter().fold(
+        Vec::with_capacity(dict.height()),
+        |mut v, k| {
+            v.push(k.unwrap().to_string());
+            v
+        },
+    );
+    let (raw_key, new_key) = get_keys("./assets/all.csv")?;
     let mut df = CsvReader::from_path(file)?.with_skip_rows(3).finish()?;
 
-    /* check if column len is larger than swrite output,
-    it means its raw data */
-    if df.width() > swrite_key.len() {
-        df = df.select(&ori_key)?; // select original key
-        df = df
-            .lazy()
-            .with_columns(vec![
-                // convert mG to SI m^2/s
-                col("^.*mG.*$") * lit::<f64>(9.80665) * lit::<f64>(0.001),
-                // X axis - Gravity Accel
-                col("^.*X.*mG.*$") * lit::<f64>(9.80665) * lit::<f64>(0.001)
-                    - lit::<f64>(9.80665),
-            ])
-            .collect()?;
-        rename_df(&mut df, &ori_key, &new_key)?;
-    } else {
-        df = df.select(&new_key)?;
+    // if key is not selected, means not remaped
+    if df.width() > new_key.len() {
+        df = df.select(&raw_key)?; // select original key
+        rename_df(&mut df, &raw_key, &new_key)?;
     }
+    // select for web
+    df = df.select(&filter_key)?;
+
+    // pre-calculation
+    df = df
+        .lazy()
+        .with_columns(vec![
+            // convert mG to SI m^2/s
+            col("^.*mG.*$") * lit::<f64>(9.80665) * lit::<f64>(0.001),
+            // X axis - Gravity Accel
+            col("^.*X.*mG.*$") * lit::<f64>(9.80665) * lit::<f64>(0.001)
+                - lit::<f64>(9.80665),
+        ])
+        .collect()?;
+
     /* preprocess data df */
     df = remap_contact(df)?;
     df = split_support(df)?;
