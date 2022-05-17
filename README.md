@@ -99,7 +99,7 @@ Example output:
 
 #### split
 
-Specify `-f` input data directory, `-s` save directory `-p` percentage from
+Specify `-f` input data directory, `-s` save directory, `-p` percentage from
 middle of the gait.
 
 Example input:
