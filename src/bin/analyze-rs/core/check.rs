@@ -1,7 +1,7 @@
 use crate::utils::util::*;
 
 use polars::prelude::*;
-use std::fs::{self, create_dir_all};
+use std::fs::{self, create_dir_all, remove_dir_all};
 use std::path::{Path, PathBuf};
 
 pub fn check(file_dir: PathBuf) -> Result<()> {
@@ -13,20 +13,21 @@ pub fn check(file_dir: PathBuf) -> Result<()> {
         let file = file.path();
         let file = file.display().to_string();
         /* read file */
-        let filename = Path::new(&file)
-            .file_name()
-            .expect("Err get input file stem")
-            .to_str()
-            .unwrap()
-            .to_string();
-        let saved_path = Path::new(&save_dir)
-            .join(Path::new(&filename))
-            .to_str()
-            .unwrap()
-            .to_string();
+        let filename = get_file_name(Path::new(&file));
+        let file_stem = get_file_stem(Path::new(&file));
+        let saved_path = join_path(Path::new(&save_dir), Path::new(&filename));
 
-        let name_vec = filename.split("-").collect::<Vec<&str>>();
-        if name_vec.len() < 10 {
+        let parts = file_stem.split("_").collect::<Vec<&str>>();
+        if parts.len() != 2 {
+            println!("Can't parse file name: {}", filename);
+            continue;
+        }
+        let mut name_vec = parts[0].split("-").collect::<Vec<&str>>();
+        name_vec.append(&mut parts[1].split("-").collect::<Vec<&str>>());
+
+        println!("{:?}", name_vec);
+        if name_vec.len() < 11 {
+            println!("Can't parse file name: {}", filename);
             continue;
         }
         /* if name_vec[6] == "1" {
@@ -61,5 +62,8 @@ pub fn check(file_dir: PathBuf) -> Result<()> {
             println!("{:<50 } {:?}", &file, results);
         }
     }
+
+    remove_dir_all(save_dir)?;
+
     Ok(())
 }
