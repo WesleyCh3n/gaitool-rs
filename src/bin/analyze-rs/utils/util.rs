@@ -1,4 +1,7 @@
-use polars::prelude::*;
+use polars::prelude::{
+    CsvReader, CsvWriter, DataFrame, Result, SerReader, SerWriter,
+    TakeRandomUtf8,
+};
 use serde_json::{json, Value};
 use std::io::prelude::*;
 use std::io::{LineWriter, Write};
@@ -110,4 +113,58 @@ pub fn get_range(df: &DataFrame) -> Vec<Value> {
         },
         Err(..) => vec![],
     }
+}
+
+pub fn get_file_name<P: AsRef<Path>>(input_path: P) -> String {
+    input_path
+        .as_ref()
+        .file_name()
+        .unwrap_or_else(|| {
+            panic!(
+                "Couldn't get file name from {}",
+                input_path.as_ref().display()
+            )
+        })
+        .to_str()
+        .unwrap_or_else(|| {
+            panic!(
+                "Couldn't parse file name to str from {}",
+                input_path.as_ref().display()
+            )
+        })
+        .to_string()
+}
+
+pub fn get_file_stem<P: AsRef<Path>>(input_path: P) -> String {
+    input_path
+        .as_ref()
+        .file_stem()
+        .unwrap_or_else(|| {
+            panic!(
+                "Couldn't get file stem from {}",
+                input_path.as_ref().display()
+            )
+        })
+        .to_str()
+        .unwrap_or_else(|| {
+            panic!(
+                "Couldn't parse file stem to str from {}",
+                input_path.as_ref().display()
+            )
+        })
+        .to_string()
+}
+
+pub fn join_path<P: AsRef<Path>>(path: P, input: P) -> String {
+    path.as_ref()
+        .join(input.as_ref())
+        .to_str()
+        .unwrap_or_else(|| {
+            panic!(
+                "Couldn't join path from {} to {}",
+                path.as_ref().display(),
+                input.as_ref().display()
+            )
+        })
+        .to_string()
 }
