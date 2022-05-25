@@ -6,6 +6,7 @@ use self::core::export::exporter;
 use self::core::filter::filter;
 use self::core::swrite::swrite;
 use self::core::split::split;
+use self::core::check::check;
 
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
@@ -56,8 +57,12 @@ enum Commands {
     /// concat export files
     #[clap(arg_required_else_help = true)]
     Concat(Concat),
+    /// auto select valid selection
     #[clap(arg_required_else_help = true)]
     Split(Split),
+    /// check if header and file num correct
+    #[clap(arg_required_else_help = true)]
+    Check(Check),
 }
 
 #[derive(Debug, Args)]
@@ -108,13 +113,24 @@ struct Concat {
 
 #[derive(Debug, Args)]
 struct Split {
+    /// input directory
     #[clap(short, long, required = true)]
     file_dir: PathBuf,
+    /// output directory
     #[clap(short, long, required = true)]
     save: PathBuf,
+    /// valid percentage
     #[clap(short, long, required = true)]
     percent: usize,
 }
+
+#[derive(Debug, Args)]
+struct Check {
+    /// input directory
+    #[clap(short, long, required = true)]
+    file_dir: PathBuf,
+}
+
 fn parse_range_tuple<T, U>(
     s: &str,
 ) -> Result<(T, U), Box<dyn std::error::Error + Send + Sync + 'static>>
@@ -153,6 +169,11 @@ fn main() {
         }
         Commands::Split(args) => {
             if let Err(e) = split(args.file_dir, args.save, args.percent) {
+                println!("{}", e)
+            };
+        }
+        Commands::Check(args) => {
+            if let Err(e) = check(args.file_dir) {
                 println!("{}", e)
             };
         }
