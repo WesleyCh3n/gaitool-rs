@@ -3,11 +3,13 @@ use crate::utils::util::*;
 use polars::prelude::*;
 use std::fs::{self, create_dir_all, remove_dir_all};
 use std::path::{Path, PathBuf};
+use std::collections::HashMap;
 
 pub fn check(file_dir: PathBuf) -> Result<()> {
     let save_dir = "./tmp/";
     create_dir_all(save_dir)?;
     let paths = fs::read_dir(&file_dir)?;
+    let mut cnt = HashMap::new();
     for file in paths {
         let file = file?;
         let file = file.path();
@@ -30,40 +32,31 @@ pub fn check(file_dir: PathBuf) -> Result<()> {
             println!("Can't parse file name: {}", filename);
             continue;
         }
-        /* if name_vec[6] == "1" {
-            continue;
-        } */
+        let count = cnt.entry(name_vec[5].to_string()).or_insert(0);
+        *count += 1;
 
         /* read/write only header */
         extract_header(&file, &saved_path);
         /* header to dataframe */
         let header_df = CsvReader::from_path(&saved_path)?.finish()?;
         /* check last_name first_name selection */
-        let mut results = vec![];
-        match header_df.column("last_name") {
-            Ok(_) => {
-                results.push("found: last_name");
-            }
-            Err(_) => (),
+        let mut checks = vec![];
+        if let Ok(_) = header_df.column("last_name") {
+            checks.push("found: last_name");
         }
-        match header_df.column("first_name") {
-            Ok(_) => {
-                results.push("found: first_name");
-            }
-            Err(_) => (),
+        if let Ok(_) = header_df.column("first_name") {
+            checks.push("found: first_name");
         }
-        match header_df.column("selection") {
-            Ok(_) => (),
-            Err(_) => {
-                results.push("not found: selection");
-            }
+        if let Err(_) = header_df.column("selection") {
+            checks.push("not found: selection");
         }
-        if results.len() != 0 {
-            println!("{:<50 } {:?}", &file, results);
+        if !checks.is_empty() {
+            println!("{:<50 } {:?}", &file, checks);
         }
     }
 
     remove_dir_all(save_dir)?;
+    println!("{:#?}", cnt);
 
     Ok(())
 }
