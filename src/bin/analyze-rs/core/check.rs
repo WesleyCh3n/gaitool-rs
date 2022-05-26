@@ -21,19 +21,24 @@ pub fn check(file_dir: PathBuf) -> Result<()> {
 
         let parts = file_stem.split("_").collect::<Vec<&str>>();
         if parts.len() != 2 {
-            println!("Can't parse file name: {}", filename);
+            println!("Can't parse file name: {}. Skipped!", filename);
             continue;
         }
+        // {record_datetime}_{user_id}-{assistant_user_id}-{location}-{posture_id}-[{reason_id},{reason_id}]-{order}.csv
         let mut name_vec = parts[0].split("-").collect::<Vec<&str>>();
         name_vec.append(&mut parts[1].split("-").collect::<Vec<&str>>());
 
-        println!("{:?}", name_vec);
         if name_vec.len() < 11 {
-            println!("Can't parse file name: {}", filename);
+            println!("Can't parse file name: {}. Skipped!", filename);
             continue;
         }
-        let count = cnt.entry(name_vec[5].to_string()).or_insert(0);
-        *count += 1;
+        if name_vec[7] == "1" {
+            let count = cnt.entry(name_vec[5].to_string() + "-1").or_insert(0);
+            *count += 1;
+        } else if name_vec[7] == "2" {
+            let count = cnt.entry(name_vec[5].to_string() + "-2").or_insert(0);
+            *count += 1;
+        }
 
         /* read/write only header */
         extract_header(&file, &saved_path);
