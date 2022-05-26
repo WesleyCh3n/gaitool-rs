@@ -9,6 +9,7 @@ use crate::core::filter::filter;
 use crate::core::swrite::swrite;
 use crate::core::split::split;
 use crate::core::check::check;
+use crate::core::clean::clean;
 
 use clap::Parser;
 
@@ -67,6 +68,11 @@ fn main() {
         }
         Commands::Check(args) => {
             if let Err(e) = check(args.file_dir) {
+                println!("{}", e)
+            };
+        }
+        Commands::Clean(args) => {
+            if let Err(e) = clean(args.file_dir, args.save) {
                 println!("{}", e)
             };
         }

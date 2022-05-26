@@ -26,9 +26,12 @@ pub enum Commands {
     /// auto select valid selection
     #[clap(arg_required_else_help = true)]
     Split(Split),
-    /// check if header and file num correct
+    /// batch check if header and file num correct
     #[clap(arg_required_else_help = true)]
     Check(Check),
+    /// batch de-identify header info
+    #[clap(arg_required_else_help = true)]
+    Clean(Clean),
 }
 
 #[derive(Debug, Args)]
@@ -95,6 +98,15 @@ pub struct Check {
     /// input directory
     #[clap(short, long, required = true)]
     pub file_dir: PathBuf,
+}
+
+#[derive(Debug, Args)]
+pub struct Clean {
+    /// input directory
+    #[clap(short, long, required = true)]
+    pub file_dir: PathBuf,
+    #[clap(short, long, required = true)]
+    pub save: PathBuf,
 }
 
 fn parse_range_tuple<T, U>(
