@@ -1,9 +1,9 @@
 use crate::utils::util::*;
 
 use polars::prelude::*;
-use std::fs::{self, create_dir_all, remove_dir_all};
-use std::path::{Path, PathBuf};
 use std::collections::HashMap;
+use std::fs::{self, create_dir_all, remove_dir_all};
+use std::path::PathBuf;
 
 pub fn check(file_dir: PathBuf) -> Result<()> {
     let save_dir = "./tmp/";
@@ -15,9 +15,9 @@ pub fn check(file_dir: PathBuf) -> Result<()> {
         let file = file.path();
         let file = file.display().to_string();
         /* read file */
-        let filename = get_file_name(Path::new(&file));
-        let file_stem = get_file_stem(Path::new(&file));
-        let saved_path = join_path(Path::new(&save_dir), Path::new(&filename));
+        let filename = get_file_name(&file);
+        let file_stem = get_file_stem(&file);
+        let saved_path = join_path(&save_dir, &filename.as_str());
 
         let parts = file_stem.split("_").collect::<Vec<&str>>();
         if parts.len() != 2 {
@@ -43,7 +43,9 @@ pub fn check(file_dir: PathBuf) -> Result<()> {
         /* read/write only header */
         extract_header(&file, &saved_path);
         /* header to dataframe */
-        let header_df = CsvReader::from_path(&saved_path)?.finish()?;
+        let header_df = CsvReader::from_path(&saved_path)?
+            .with_ignore_parser_errors(true)
+            .finish()?;
         /* check last_name first_name selection */
         let mut checks = vec![];
         if let Ok(_) = header_df.column("last_name") {
