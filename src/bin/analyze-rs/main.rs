@@ -1,15 +1,13 @@
-mod core;
-mod utils;
 mod args;
+use args::*;
 
-use crate::args::*;
-use crate::core::concat::concater;
-use crate::core::export::exporter;
-use crate::core::filter::filter;
-use crate::core::swrite::swrite;
-use crate::core::split::split;
-use crate::core::check::check;
-use crate::core::clean::clean;
+use analyze_rs::core::concat::*;
+use analyze_rs::core::export::*;
+use analyze_rs::core::filter::*;
+use analyze_rs::core::swrite::*;
+use analyze_rs::core::split::*;
+use analyze_rs::core::check::*;
+use analyze_rs::core::clean::*;
 
 use clap::Parser;
 
