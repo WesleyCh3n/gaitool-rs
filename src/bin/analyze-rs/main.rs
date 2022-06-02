@@ -40,8 +40,8 @@ fn main() {
     let args = Cli::parse();
     match args.command {
         Commands::Filter(args) => {
-            if let Err(e) = filter(args.file, args.save) {
-                println!("{}", e)
+            if let Ok(resp) = filter(args.file, args.save) {
+                println!("{}", resp)
             };
         }
         Commands::Swrite(args) => {

@@ -2,11 +2,11 @@ use crate::utils::preprocess::*;
 use crate::utils::util::*;
 
 use polars::prelude::*;
-use serde_json::json;
+use serde_json::{ json, Value };
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 
-pub fn filter(file: PathBuf, save_dir: PathBuf) -> Result<()> {
+pub fn filter(file: PathBuf, save_dir: PathBuf) -> Result<Value> {
     create_dir_all(&save_dir)?;
     /* output file path */
     let filename = file
@@ -81,9 +81,7 @@ pub fn filter(file: PathBuf, save_dir: PathBuf) -> Result<()> {
                 "cyDb": save_csv(&mut db_df, &save_dir.display().to_string(), "db.csv"),
             },
             "Range": sel_range,
-    })
-    .to_string();
-    println!("{}", resp_filter_api);
+    });
 
-    Ok(())
+    Ok(resp_filter_api)
 }
