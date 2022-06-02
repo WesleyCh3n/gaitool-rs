@@ -1,6 +1,8 @@
 use polars::functions::hor_concat_df;
 use polars::prelude::*;
+use serde_json::Value;
 use serde_json::json;
+use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 
 use crate::utils::preprocess::*;
@@ -10,7 +12,8 @@ pub fn exporter(
     file: PathBuf,
     save_dir: PathBuf,
     ranges: Vec<(u32, u32)>,
-) -> Result<()> {
+) -> Result<Value> {
+    create_dir_all(&save_dir)?;
     /* extract file name */
     let filename = file
         .file_name()
@@ -116,10 +119,8 @@ pub fn exporter(
         hor_concat_df(&[info_df, gt_mean, ls_mean, rs_mean, db_mean, data_df])?;
 
     /* stdout result api */
-    let resp_filter_api = json!({
+    let resp = json!({
         "ExportFile": save_csv(&mut result_df, &save_dir.display().to_string(), &format!("{}-result.csv", outfile)),
-    })
-    .to_string();
-    println!("{}", resp_filter_api);
-    Ok(())
+    });
+    Ok(resp)
 }
