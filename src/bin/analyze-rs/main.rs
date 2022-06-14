@@ -40,18 +40,18 @@ fn main() {
     let args = Cli::parse();
     match args.command {
         Commands::Filter(args) => {
-            if let Err(e) = filter(args.file, args.save) {
-                println!("{}", e)
+            if let Ok(resp) = filter(args.file, args.save) {
+                println!("{}", resp)
             };
         }
         Commands::Swrite(args) => {
-            if let Err(e) = swrite(args.file, args.save, args.value) {
-                println!("{}", e)
+            if let Ok(resp) = swrite(args.file, args.save, args.value) {
+                println!("{}", resp)
             };
         }
         Commands::Export(args) => {
-            if let Err(e) = exporter(args.file, args.save, args.ranges) {
-                println!("{}", e)
+            if let Ok(resp) = exporter(args.file, args.save, args.ranges) {
+                println!("{}", resp)
             };
         }
         Commands::Concat(args) => {

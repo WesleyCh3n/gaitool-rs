@@ -1,7 +1,6 @@
 use crate::utils::preprocess::*;
 use crate::utils::util::*;
 
-use indicatif::ProgressBar;
 use polars::prelude::*;
 use std::fs::{self, create_dir_all};
 use std::path::{Path, PathBuf};
@@ -13,23 +12,13 @@ pub fn split(
 ) -> Result<()> {
     create_dir_all(&save_dir)?;
     let paths = fs::read_dir(&file_dir)?;
-    let names = fs::read_dir(&file_dir)?;
-    let names = names
-        .filter_map(|entry| {
-            entry.ok().and_then(|e| {
-                e.path()
-                    .file_name()
-                    .and_then(|n| n.to_str().map(|s| String::from(s)))
-            })
-        })
-        .collect::<Vec<String>>();
-    let pb = ProgressBar::new(names.len() as u64);
+    let (ori_key, new_key) = get_keys("./assets/all.csv")?;
     for file in paths {
         let file = file?;
         let file = file.path();
         let file = file.display().to_string();
         /* read file */
-        pb.inc(1);
+        // pb.inc(1);
         let filename = Path::new(&file)
             .file_name()
             .expect("Err get input file stem")
@@ -41,66 +30,117 @@ pub fn split(
             .to_str()
             .unwrap()
             .to_string();
-        /* TODO: check type */
         let name_vec = filename.split("-").collect::<Vec<&str>>();
         if name_vec.len() < 10 {
             continue;
         }
-        if name_vec[6] == "1" {
-            continue;
+        match load_csv(&file, &ori_key, &new_key) {
+            Ok(mut df) => {
+                /* preprocess data df */
+                let mut export_df = df.clone();
+                df = remap_contact(df)?;
+                df = split_support(df)?;
+
+                /* get support df */
+                let gait_df = cal_gait(&df)?;
+                let range_value = if name_vec[6] == "2" {
+                    let range_df = get_select_df(
+                        &gait_df,
+                        gait_df.height(),
+                        gait_df.height() / 2,
+                        percent,
+                    );
+                    get_range_string(&range_df)
+                } else if name_vec[6] == "1" {
+                    let half = gait_df.height() / 2;
+                    let range_df_1 =
+                        get_select_df(&gait_df, half, half / 2, percent);
+                    let range_df_2 = get_select_df(
+                        &gait_df,
+                        half,
+                        half + 1 + (half / 2),
+                        percent,
+                    );
+                    format!(
+                        "{} {}",
+                        get_range_string(&range_df_1),
+                        get_range_string(&range_df_2)
+                    )
+                } else {
+                    "".to_string()
+                };
+
+                extract_header(&file, &saved_path);
+                let mut header_df =
+                    CsvReader::from_path(&saved_path)?.finish()?;
+                header_df = header_df
+                    .lazy()
+                    .with_column(lit(range_value).alias("selection"))
+                    .drop_columns(["last_name", "first_name"])
+                    .collect()?;
+                save_csv(
+                    &mut header_df,
+                    &save_dir.display().to_string(),
+                    &filename,
+                );
+                append_df2header(
+                    &mut export_df,
+                    &save_dir.display().to_string(),
+                    &filename,
+                );
+                println!("{}: Success", file);
+            }
+            Err(e) => {
+                println!("{}: {}", file, e);
+            }
         }
-
-        /* get remap column csv */
-        let (ori_key, new_key) = get_keys("./assets/all.csv")?;
-        let mut df = CsvReader::from_path(&file)?
-            .with_skip_rows(3)
-            // .with_columns(Some(ori_key.clone())) // read only selected column
-            .finish()?;
-        /* preprocess data df */
-        if df.width() > new_key.len() {
-            df = df.select(&ori_key)?; // select original key
-            rename_df(&mut df, &ori_key, &new_key)?;
-        }
-        /* preprocess data df */
-        let mut export_df = df.clone();
-        df = remap_contact(df)?;
-        df = split_support(df)?;
-
-        /* get support df */
-        let gait_df = cal_gait(&df)?;
-        // let gait_df = gait_df.with_row_count("Id", None)?;
-        let middle = gait_df.height() / 2;
-        let range = gait_df.height() * percent / 100;
-        let start = middle - range / 2;
-        let gait_df = gait_df.slice(start as i64, range);
-        let range_value = format!(
-            "{}-{}",
-            gait_df
-                .column("start")?
-                .head(Some(1))
-                .f64()?
-                .get(0)
-                .unwrap(),
-            gait_df.column("end")?.tail(Some(1)).f64()?.get(0).unwrap()
-        );
-
-        /* read/write only header */
-        extract_header(&file, &saved_path);
-        /* header to dataframe */
-        let mut header_df = CsvReader::from_path(&saved_path)?.finish()?;
-        /* write range to selection column */
-        header_df = header_df
-            .lazy()
-            .with_column(lit(range_value).alias("selection"))
-            .drop_columns(["last_name", "first_name"])
-            .collect()?;
-        /* save modidied header to csv */
-        save_csv(&mut header_df, &save_dir.display().to_string(), &filename);
-        append_df2header(
-            &mut export_df,
-            &save_dir.display().to_string(),
-            &filename,
-        );
     }
     Ok(())
+}
+
+fn load_csv<P, K>(filename: P, ori_key: K, new_key: K) -> Result<DataFrame>
+where
+    P: AsRef<Path>,
+    K: AsRef<Vec<String>>,
+{
+    let mut df = CsvReader::from_path(filename.as_ref())?
+        .with_skip_rows(3)
+        .finish()?;
+    /* preprocess data df */
+    if df.width() > new_key.as_ref().len() {
+        df = df.select(ori_key.as_ref())?; // select original key
+        rename_df(&mut df, ori_key.as_ref(), new_key.as_ref())?;
+    }
+    Ok(df)
+}
+
+fn get_select_df(
+    df: &DataFrame,
+    length: usize,
+    middle: usize,
+    percent: usize,
+) -> DataFrame {
+    let range = length * percent / 100;
+    let start = middle - range / 2;
+    df.slice(start as i64, range)
+}
+
+fn get_range_string(df: &DataFrame) -> String {
+    format!(
+        "{}-{}",
+        df.column("start")
+            .unwrap()
+            .head(Some(1))
+            .f64()
+            .unwrap()
+            .get(0)
+            .unwrap(),
+        df.column("end")
+            .unwrap()
+            .tail(Some(1))
+            .f64()
+            .unwrap()
+            .get(0)
+            .unwrap()
+    )
 }

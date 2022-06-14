@@ -2,6 +2,7 @@ use crate::utils::preprocess::*;
 use crate::utils::util::*;
 
 use polars::prelude::*;
+use serde_json::Value;
 use serde_json::json;
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
@@ -10,7 +11,7 @@ pub fn swrite(
     file: PathBuf,
     save_dir: PathBuf,
     range_value: String,
-) -> Result<()> {
+) -> Result<Value> {
     create_dir_all(&save_dir)?;
     /* output file path */
     let filename = Path::new(&file)
@@ -52,11 +53,9 @@ pub fn swrite(
     }
 
     /* stdout result api */
-    let resp_filter_api = json!({
+    let resp = json!({
         "CleanFile": append_df2header(&mut df, &save_dir.display().to_string(), &filename),
-    })
-    .to_string();
-    println!("{}", resp_filter_api);
+    });
 
-    Ok(())
+    Ok(resp)
 }
