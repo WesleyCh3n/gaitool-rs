@@ -1,13 +1,13 @@
 mod args;
 use args::*;
 
-use analyze_rs::core::concat::*;
-use analyze_rs::core::export::*;
-use analyze_rs::core::filter::*;
-use analyze_rs::core::swrite::*;
-use analyze_rs::core::split::*;
-use analyze_rs::core::check::*;
-use analyze_rs::core::clean::*;
+use analyze::core::concat::*;
+use analyze::core::export::*;
+use analyze::core::filter::*;
+use analyze::core::swrite::*;
+use analyze::core::split::*;
+use analyze::core::check::*;
+use analyze::core::clean::*;
 
 use clap::Parser;
 

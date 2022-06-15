@@ -1,13 +1,16 @@
 [package]
-name = "analyze_rs"
+name = "analyze-rs"
 version = "1.0.0"
 edition = "2021"
 categories = ["development-tools", "command-line-utilities"]
-repository = "https://github.com/WesleyCh3n/analyze.rs"
+repository = "https://github.com/WesleyCh3n/analyze-rs"
 description = "Analyze Human GAIT cycle"
 authors = ["Wesley Chen <wesley.ch3n.0530@gmail.com>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "analyze"
 
 [dependencies]
 polars = { version="0.20.0", features=["lazy", "ndarray", "rows", "lazy_regex", "horizontal_concat"]}
