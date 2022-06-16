@@ -2,11 +2,16 @@ use crate::utils::preprocess::*;
 use crate::utils::util::*;
 
 use polars::prelude::*;
-use serde_json::{ json, Value };
+use serde_json::{json, Value};
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 
-pub fn filter(file: PathBuf, save_dir: PathBuf) -> Result<Value> {
+pub fn filter(
+    file: PathBuf,
+    save_dir: PathBuf,
+    remap_csv: PathBuf,
+    filter_csv: PathBuf,
+) -> Result<Value> {
     create_dir_all(&save_dir)?;
     /* output file path */
     let filename = file
@@ -30,7 +35,10 @@ pub fn filter(file: PathBuf, save_dir: PathBuf) -> Result<Value> {
 
     /* get remap column csv */
     // let (ori_key, new_key) = get_keys("./assets/filter.csv")?;
-    let dict = CsvReader::from_path("./assets/filter.csv")?.finish()?;
+    let dict = CsvReader::from_path(filter_csv.to_str().unwrap())
+        .unwrap_or_else(|e| panic!("{:?} {}", filter_csv, e))
+        .finish()
+        .unwrap_or_else(|e| panic!("{:?} {}", filter_csv, e));
     let filter_key = dict["New"].utf8()?.into_iter().fold(
         Vec::with_capacity(dict.height()),
         |mut v, k| {
@@ -38,7 +46,8 @@ pub fn filter(file: PathBuf, save_dir: PathBuf) -> Result<Value> {
             v
         },
     );
-    let (raw_key, new_key) = get_keys("./assets/all.csv")?;
+    let (raw_key, new_key) = get_keys(remap_csv.to_str().unwrap())
+        .unwrap_or_else(|e| panic!("{:?} {}", remap_csv, e));
     let mut df = CsvReader::from_path(file)?.with_skip_rows(3).finish()?;
 
     // if key is not selected, means not remaped
