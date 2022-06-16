@@ -11,6 +11,7 @@ pub fn swrite(
     file: PathBuf,
     save_dir: PathBuf,
     range_value: String,
+    remap_csv: PathBuf,
 ) -> Result<Value> {
     create_dir_all(&save_dir)?;
     /* output file path */
@@ -40,7 +41,8 @@ pub fn swrite(
     save_csv(&mut header_df, &save_dir.display().to_string(), &filename);
 
     /* get remap column csv */
-    let (ori_key, new_key) = get_keys("./assets/all.csv")?;
+    let (ori_key, new_key) = get_keys(remap_csv.to_str().unwrap())
+        .unwrap_or_else(|e| panic!("{:?} {}", remap_csv, e));
     let mut df = CsvReader::from_path(file)?
         .with_skip_rows(3)
         // .with_columns(Some(ori_key.clone())) // read only selected column
