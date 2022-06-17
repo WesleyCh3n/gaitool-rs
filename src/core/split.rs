@@ -9,10 +9,12 @@ pub fn split(
     file_dir: PathBuf,
     save_dir: PathBuf,
     percent: usize,
+    remap_csv: PathBuf,
 ) -> Result<()> {
     create_dir_all(&save_dir)?;
     let paths = fs::read_dir(&file_dir)?;
-    let (ori_key, new_key) = get_keys("./assets/all.csv")?;
+    let (ori_key, new_key) = get_keys(remap_csv.to_str().unwrap())
+        .unwrap_or_else(|e| panic!("{:?} {}", remap_csv, e));
     for file in paths {
         let file = file?;
         let file = file.path();
