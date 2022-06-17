@@ -42,6 +42,10 @@ pub struct Filter {
     /// output directory
     #[clap(short, long, required = true)]
     pub save: PathBuf,
+    #[clap(short, long, default_value = "./assets/all.csv")]
+    pub remap_csv: PathBuf,
+    #[clap(short, long, default_value = "./assets/filter.csv")]
+    pub web_csv: PathBuf,
 }
 
 #[derive(Debug, Args)]
@@ -68,6 +72,8 @@ pub struct Swrite {
     /// selection values to write
     #[clap(short, long, required = true)]
     pub value: String,
+    #[clap(short, long, default_value = "./assets/all.csv")]
+    pub remap_csv: PathBuf,
 }
 
 #[derive(Debug, Args)]
@@ -91,6 +97,8 @@ pub struct Split {
     /// valid percentage
     #[clap(short, long, required = true)]
     pub percent: usize,
+    #[clap(short, long, default_value = "./assets/all.csv")]
+    pub remap_csv: PathBuf,
 }
 
 #[derive(Debug, Args)]
