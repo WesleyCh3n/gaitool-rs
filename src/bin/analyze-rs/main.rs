@@ -1,13 +1,15 @@
 mod args;
+use std::fs;
+
 use args::*;
 
+use analyze::core::check::*;
+use analyze::core::clean::*;
 use analyze::core::concat::*;
 use analyze::core::export::*;
 use analyze::core::filter::*;
-use analyze::core::swrite::*;
 use analyze::core::split::*;
-use analyze::core::check::*;
-use analyze::core::clean::*;
+use analyze::core::swrite::*;
 
 use clap::Parser;
 
@@ -35,17 +37,20 @@ use clap::Parser;
 /// Response: {"ConcatFile":"concat.csv"}
 ///
 
-
 fn main() {
     let args = Cli::parse();
     match args.command {
         Commands::Filter(args) => {
-            if let Ok(resp) = filter(args.file, args.save, args.remap_csv, args.web_csv) {
+            if let Ok(resp) =
+                filter(args.file, args.save, args.remap_csv, args.web_csv)
+            {
                 println!("{}", resp)
             };
         }
         Commands::Swrite(args) => {
-            if let Ok(resp) = swrite(args.file, args.save, args.value, args.remap_csv) {
+            if let Ok(resp) =
+                swrite(args.file, args.save, args.value, args.remap_csv)
+            {
                 println!("{}", resp)
             };
         }
@@ -60,9 +65,20 @@ fn main() {
             };
         }
         Commands::Split(args) => {
-            if let Err(e) = split(args.file_dir, args.save, args.percent, args.remap_csv) {
-                println!("{}", e)
-            };
+            let paths = fs::read_dir(&args.file_dir).unwrap_or_else(|e| {
+                panic!("Failed to read {:?}. {}", args.file_dir, e)
+            });
+            for file in paths {
+                if let Err(e) = split(
+                    &file.unwrap_or_else(|e| panic!("{}", e)).path(),
+                    &args.save,
+                    args.percent,
+                    &args.remap_csv,
+                    None,
+                ) {
+                    println!("{}", e)
+                };
+            }
         }
         Commands::Check(args) => {
             if let Err(e) = check(args.file_dir) {
