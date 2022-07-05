@@ -93,13 +93,13 @@ pub fn split(
                 &filename,
             );
             println!("{}: Success", file);
+            return Ok(());
         }
         Err(e) => {
             println!("{}: {}", file, e);
+            return Err(e);
         }
     }
-    // }
-    Ok(())
 }
 
 fn load_csv<P, K>(filename: P, ori_key: K, new_key: K) -> Result<DataFrame>
