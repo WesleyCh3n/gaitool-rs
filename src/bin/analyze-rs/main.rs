@@ -69,14 +69,20 @@ fn main() {
                 panic!("Failed to read {:?}. {}", args.file_dir, e)
             });
             for file in paths {
-                if let Err(e) = split(
-                    &file.unwrap_or_else(|e| panic!("{}", e)).path(),
+                let file = file.unwrap_or_else(|e| panic!("{}", e)).path();
+                match split(
+                    &file,
                     &args.save,
                     args.percent,
                     &args.remap_csv,
                     None,
                 ) {
-                    println!("{}", e)
+                    Ok(()) => {
+                        println!("{}: Success", file.display());
+                    }
+                    Err(e) => {
+                        println!("{}: {}", file.display(), e)
+                    }
                 };
             }
         }

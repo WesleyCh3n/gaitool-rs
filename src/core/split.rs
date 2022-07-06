@@ -92,11 +92,9 @@ pub fn split(
                 &save_dir.display().to_string(),
                 &filename,
             );
-            println!("{}: Success", file);
             return Ok(());
         }
         Err(e) => {
-            println!("{}: {}", file, e);
             return Err(e);
         }
     }
