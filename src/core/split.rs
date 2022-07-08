@@ -4,6 +4,7 @@ use crate::utils::util::*;
 use polars::prelude::*;
 use std::borrow::Cow;
 use std::fs::create_dir_all;
+use std::fs::rename;
 use std::path::{Path, PathBuf};
 
 pub fn split(
@@ -24,11 +25,6 @@ pub fn split(
     let filename = Path::new(&file)
         .file_name()
         .expect("Err get input file stem")
-        .to_str()
-        .unwrap()
-        .to_string();
-    let saved_path = Path::new(&save_dir)
-        .join(Path::new(&filename))
         .to_str()
         .unwrap()
         .to_string();
@@ -75,6 +71,12 @@ pub fn split(
                 "".to_string()
             };
 
+            let tmp_filename = format!("{}.tmp", filename);
+            let saved_path = Path::new(&save_dir)
+                .join(&tmp_filename)
+                .to_str()
+                .unwrap()
+                .to_string();
             extract_header(&file, &saved_path);
             let mut header_df = CsvReader::from_path(&saved_path)?.finish()?;
             header_df = header_df
@@ -85,13 +87,16 @@ pub fn split(
             save_csv(
                 &mut header_df,
                 &save_dir.display().to_string(),
-                &filename,
+                &tmp_filename,
             );
             append_df2header(
                 &mut export_df,
                 &save_dir.display().to_string(),
-                &filename,
+                &tmp_filename,
             );
+            rename(saved_path, save_dir.join(filename)).unwrap_or_else(|e| {
+                panic!("{}", e);
+            });
             return Ok(());
         }
         Err(e) => {
