@@ -32,6 +32,9 @@ pub enum Commands {
     /// batch de-identify header info
     #[clap(arg_required_else_help = true)]
     Clean(Clean),
+    ///
+    #[clap(arg_required_else_help = true)]
+    Diff(Diff),
 }
 
 #[derive(Debug, Args)]
@@ -115,6 +118,15 @@ pub struct Clean {
     pub file_dir: PathBuf,
     #[clap(short, long, required = true)]
     pub save: PathBuf,
+}
+
+#[derive(Debug, Args)]
+pub struct Diff {
+    /// input directory
+    #[clap(short, long, required = true)]
+    pub file: PathBuf,
+    #[clap(short, long, default_value = "./assets/all.csv")]
+    pub remap_csv: PathBuf,
 }
 
 fn parse_range_tuple<T, U>(

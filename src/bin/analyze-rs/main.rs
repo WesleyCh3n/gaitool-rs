@@ -10,6 +10,7 @@ use analyze::core::export::*;
 use analyze::core::filter::*;
 use analyze::core::split::*;
 use analyze::core::swrite::*;
+use analyze::core::diff::diff_column;
 
 use clap::Parser;
 
@@ -95,6 +96,11 @@ fn main() {
             if let Err(e) = clean(args.file_dir, args.save) {
                 println!("{}", e)
             };
+        }
+        Commands::Diff(args) => {
+            if let Err(e) = diff_column(&args.file, &args.remap_csv) {
+                println!("{}", e);
+            }
         }
     }
 }
