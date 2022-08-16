@@ -14,7 +14,7 @@ pub fn diff_column(file: &PathBuf, remap_csv: &PathBuf) -> Result<Vec<String>> {
 
     let diff = TextDiff::from_lines(&source, &target);
 
-    let result = vec![];
+    let mut result = vec![];
     for (_idx, group) in diff.grouped_ops(3).iter().enumerate() {
         for op in group {
             for change in diff.iter_inline_changes(op) {
@@ -26,8 +26,8 @@ pub fn diff_column(file: &PathBuf, remap_csv: &PathBuf) -> Result<Vec<String>> {
                 if change.old_index() == change.new_index() {
                     continue;
                 }
-                let line = String::new();
-                print!(
+                let mut line = String::new();
+                line.push_str(&format!(
                     "{} | {: <4} {: <4} | ",
                     &sign,
                     if let Some(i) = change.old_index() {
@@ -40,7 +40,7 @@ pub fn diff_column(file: &PathBuf, remap_csv: &PathBuf) -> Result<Vec<String>> {
                     } else {
                         " ".to_string()
                     },
-                );
+                ));
                 let text = change.iter_strings_lossy().fold(
                     String::new(),
                     |mut v, (_, s)| {
@@ -48,10 +48,11 @@ pub fn diff_column(file: &PathBuf, remap_csv: &PathBuf) -> Result<Vec<String>> {
                         v
                     },
                 );
-                print!("{}", text);
+                line.push_str(&text);
                 if change.missing_newline() {
-                    println!("");
+                    line.push_str("\n");
                 }
+                result.push(line);
             }
         }
     }

@@ -100,8 +100,8 @@ pub struct Split {
     /// valid percentage
     #[clap(short, long, required = true)]
     pub percent: usize,
-    #[clap(short, long, default_value = "./assets/all.csv")]
-    pub remap_csv: PathBuf,
+    #[clap(short, long, default_value = "./assets/")]
+    pub remap_csv_dir: PathBuf,
 }
 
 #[derive(Debug, Args)]

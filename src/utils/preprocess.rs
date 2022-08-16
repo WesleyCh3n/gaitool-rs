@@ -81,7 +81,7 @@ pub fn cal_gait(df: &DataFrame) -> Result<DataFrame> {
 
     // create start time every two step
     let mut s_vec = time_df
-        .filter(&time_df.column("start")?.equal(1))?
+        .filter(&time_df.column("start")?.equal(1)?)?
         .select(["time"])?
         .column("time")?
         .f64()?
@@ -129,7 +129,7 @@ pub fn cal_x_support(df: &DataFrame, sup_type: &str) -> Result<DataFrame> {
         .collect()?;
 
     let s_vec = time_df
-        .filter(&time_df.column("start")?.equal(1))?
+        .filter(&time_df.column("start")?.equal(1)?)?
         .select(["time"])?
         .column("time")?
         .f64()?
@@ -140,7 +140,7 @@ pub fn cal_x_support(df: &DataFrame, sup_type: &str) -> Result<DataFrame> {
         });
 
     let e_vec = time_df
-        .filter(&time_df.column("end")?.equal(1))?
+        .filter(&time_df.column("end")?.equal(1)?)?
         .select(["time"])?
         .column("time")?
         .f64()?

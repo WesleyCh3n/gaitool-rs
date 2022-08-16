@@ -6,11 +6,11 @@ use args::*;
 use analyze::core::check::*;
 use analyze::core::clean::*;
 use analyze::core::concat::*;
+use analyze::core::diff::diff_column;
 use analyze::core::export::*;
 use analyze::core::filter::*;
 use analyze::core::split::*;
 use analyze::core::swrite::*;
-use analyze::core::diff::diff_column;
 
 use clap::Parser;
 
@@ -75,7 +75,7 @@ fn main() {
                     &file,
                     &args.save,
                     args.percent,
-                    &args.remap_csv,
+                    &args.remap_csv_dir,
                     None,
                 ) {
                     Ok(()) => {

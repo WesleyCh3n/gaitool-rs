@@ -11,12 +11,10 @@ pub fn split(
     file: &PathBuf,
     save_dir: &PathBuf,
     percent: usize,
-    remap_csv: &PathBuf,
+    remap_csv_dir: &PathBuf,
     mut c: Option<Box<dyn FnMut(&String) -> ()>>,
 ) -> Result<()> {
     create_dir_all(&save_dir)?;
-    let (ori_key, new_key) = get_keys(remap_csv.to_str().unwrap())
-        .unwrap_or_else(|e| panic!("{:?} {}", remap_csv, e));
     let file = file.display().to_string();
     if let Some(ref mut c) = c {
         c(&file);
@@ -34,6 +32,22 @@ pub fn split(
             "Parse name failed",
         )));
     }
+    let tmp_filename = format!("{}.tmp", filename);
+    let saved_path = Path::new(&save_dir)
+        .join(&tmp_filename)
+        .to_str()
+        .unwrap()
+        .to_string();
+    extract_header(&file, &saved_path);
+    let mut header_df = CsvReader::from_path(&saved_path)?.finish()?;
+    let version = header_df
+        .column("exported with version")?
+        .head(Some(1))
+        .str_value(0)
+        .to_string();
+    let remap_csv = remap_csv_dir.join(format!("{}.csv", version));
+    let (ori_key, new_key) = get_keys(&remap_csv.display().to_string())
+        .unwrap_or_else(|e| panic!("{:?} {}", &remap_csv, e));
     match load_csv(&file, &ori_key, &new_key) {
         Ok(mut df) => {
             /* preprocess data df */
@@ -71,14 +85,6 @@ pub fn split(
                 "".to_string()
             };
 
-            let tmp_filename = format!("{}.tmp", filename);
-            let saved_path = Path::new(&save_dir)
-                .join(&tmp_filename)
-                .to_str()
-                .unwrap()
-                .to_string();
-            extract_header(&file, &saved_path);
-            let mut header_df = CsvReader::from_path(&saved_path)?.finish()?;
             header_df = header_df
                 .lazy()
                 .with_column(lit(range_value).alias("selection"))
@@ -112,6 +118,16 @@ where
 {
     let mut df = CsvReader::from_path(filename.as_ref())?
         .with_skip_rows(3)
+        .with_dtypes(Some(&Schema::from([
+            Field::new(
+                "Noraxon MyoMotion-Joints-Shoulder RT-Abduction Hrz (deg)",
+                DataType::Float64,
+            ),
+            Field::new(
+                "Noraxon MyoMotion-Joints-Shoulder LT-Abduction Hrz (deg)",
+                DataType::Float64,
+            ),
+        ])))
         .finish()?;
     /* preprocess data df */
     if df.width() > new_key.as_ref().len() {
