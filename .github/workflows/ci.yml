@@ -58,11 +58,11 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --bin analyze-rs
+          args: --release --bin gaitool-cli
       - name: Compress things up
         run: |
-          cp ./target/release/analyze-rs${{ matrix.suffix }} ./
-          ${{ matrix.comp_er }} ${{ matrix.comp_args }} ${{ steps.get_repository_name.outputs.REPO_NAME }}-${{ matrix.target }}.${{ matrix.comp_type }} analyze-rs${{ matrix.suffix }} assets/
+          cp ./target/release/gaitool-cli${{ matrix.suffix }} ./
+          ${{ matrix.comp_er }} ${{ matrix.comp_args }} ${{ steps.get_repository_name.outputs.REPO_NAME }}-${{ matrix.target }}.${{ matrix.comp_type }} gaitool-cli${{ matrix.suffix }} assets/
           ls
       - uses: actions/upload-artifact@v3
         with:
