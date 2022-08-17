@@ -1,19 +1,15 @@
 [package]
-name = "analyze-rs"
-version = "1.0.0"
+name = "gaitool-rs"
+version = "2.0.0"
 edition = "2021"
 categories = ["development-tools", "command-line-utilities"]
-repository = "https://github.com/WesleyCh3n/analyze-rs"
+repository = "https://github.com/WesleyCh3n/gaitool-rs"
 description = "Analyze Human GAIT cycle"
 authors = ["Wesley Chen <wesley.ch3n.0530@gmail.com>"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[lib]
-name = "analyze"
-
 [dependencies]
-polars = { version="0.20.0", features=["lazy", "ndarray", "rows", "lazy_regex", "horizontal_concat"]}
+polars = { version="0.23.0", features=["json", "lazy", "csv-file", "ndarray", "rows", "lazy_regex", "horizontal_concat"]}
 serde_json = "1.0"
 clap = { version = "3.1.12", features = ["derive"] }
 indicatif = "0.16.2"
+similar = {version="2.1.0", features=["inline"]}

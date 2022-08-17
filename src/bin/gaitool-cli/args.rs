@@ -2,7 +2,7 @@ use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
-#[clap(name = "analyze-rs")]
+#[clap(name = "gaitool-cli")]
 #[clap(about = "analyze human GAIT cycle", long_about = None)]
 pub struct Cli {
     #[clap(subcommand)]
@@ -11,15 +11,9 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// filter raw file
-    #[clap(arg_required_else_help = true)]
-    Filter(Filter),
     /// export calculation in selection range
     #[clap(arg_required_else_help = true)]
     Export(Export),
-    /// write selection range into raw file
-    #[clap(arg_required_else_help = true)]
-    Swrite(Swrite),
     /// concat export files
     #[clap(arg_required_else_help = true)]
     Concat(Concat),
@@ -32,20 +26,9 @@ pub enum Commands {
     /// batch de-identify header info
     #[clap(arg_required_else_help = true)]
     Clean(Clean),
-}
-
-#[derive(Debug, Args)]
-pub struct Filter {
-    /// input file
-    #[clap(short, long, required = true)]
-    pub file: PathBuf,
-    /// output directory
-    #[clap(short, long, required = true)]
-    pub save: PathBuf,
-    #[clap(short, long, default_value = "./assets/all.csv")]
-    pub remap_csv: PathBuf,
-    #[clap(short, long, default_value = "./assets/filter.csv")]
-    pub web_csv: PathBuf,
+    ///
+    #[clap(arg_required_else_help = true)]
+    Diff(Diff),
 }
 
 #[derive(Debug, Args)]
@@ -59,21 +42,6 @@ pub struct Export {
     /// selection range index. e.g. "2 5"
     #[clap(short, long, parse(try_from_str = parse_range_tuple), required = true)]
     pub ranges: Vec<(u32, u32)>,
-}
-
-#[derive(Debug, Args)]
-pub struct Swrite {
-    /// input file
-    #[clap(short, long, required = true)]
-    pub file: PathBuf,
-    /// output directory
-    #[clap(short, long, required = true)]
-    pub save: PathBuf,
-    /// selection values to write
-    #[clap(short, long, required = true)]
-    pub value: String,
-    #[clap(short, long, default_value = "./assets/all.csv")]
-    pub remap_csv: PathBuf,
 }
 
 #[derive(Debug, Args)]
@@ -97,8 +65,8 @@ pub struct Split {
     /// valid percentage
     #[clap(short, long, required = true)]
     pub percent: usize,
-    #[clap(short, long, default_value = "./assets/all.csv")]
-    pub remap_csv: PathBuf,
+    #[clap(short, long, default_value = "./assets/")]
+    pub remap_csv_dir: PathBuf,
 }
 
 #[derive(Debug, Args)]
@@ -115,6 +83,15 @@ pub struct Clean {
     pub file_dir: PathBuf,
     #[clap(short, long, required = true)]
     pub save: PathBuf,
+}
+
+#[derive(Debug, Args)]
+pub struct Diff {
+    /// input directory
+    #[clap(short, long, required = true)]
+    pub file: PathBuf,
+    #[clap(short, long, default_value = "./assets/all.csv")]
+    pub remap_csv: PathBuf,
 }
 
 fn parse_range_tuple<T, U>(
