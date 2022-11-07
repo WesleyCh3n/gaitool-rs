@@ -46,8 +46,16 @@ pub fn split(
         .str_value(0)
         .to_string();
     let remap_csv = remap_csv_dir.join(format!("{}.csv", version));
-    let (ori_key, new_key) = get_keys(&remap_csv.display().to_string())
-        .unwrap_or_else(|e| panic!("{:?} {}", &remap_csv, e));
+
+    let (ori_key, new_key) = match get_keys(&remap_csv.display().to_string()) {
+        Ok(keys) => keys,
+        Err(_) => {
+            std::fs::remove_file(saved_path).unwrap();
+            return Err(PolarsError::NotFound(remap_csv.display().to_string()));
+        }
+    };
+    // let (ori_key, new_key) = get_keys(&remap_csv.display().to_string())
+    //     .unwrap_or_else(|e| panic!("{:?} {}", &remap_csv, e));
     match load_csv(&file, &ori_key, &new_key) {
         Ok(mut df) => {
             /* preprocess data df */
