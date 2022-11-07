@@ -47,9 +47,9 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - name: install atk
+      - name: install deps
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install -y librust-atk-dev librust-gdk-dev
+        run: sudo apt-get install -y libclang-dev libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libspeechd-dev libxkbcommon-dev libssl-dev
       - uses: actions-rs/cargo@v1
         with:
           command: build
