@@ -49,7 +49,7 @@ jobs:
           toolchain: stable
       - name: install atk
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install -y librust-atk-dev
+        run: sudo apt-get install -y librust-atk-dev librust-gdk-dev
       - uses: actions-rs/cargo@v1
         with:
           command: build
@@ -87,7 +87,9 @@ jobs:
       - uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          prerelease: false
+          automatic_release_tag: "split-gui"
+          prerelease: true
+          title: "Split GUI Build"
           files: |
             ${{ steps.get_name.outputs.REPO_NAME }}-x86_64-apple-darwin.tar.gz
             ${{ steps.get_name.outputs.REPO_NAME }}-x86_64-unknown-linux-gnu.tar.gz
