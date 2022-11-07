@@ -56,7 +56,7 @@ jobs:
           args: --release -p split_gui
       - name: Compress things up
         run: |
-          cp ./target/release/split_gui${{ matrix.suffix }} ./split-gui
+          cp ./target/release/split_gui${{ matrix.suffix }} ./split-gui${{ matrix.suffix }}
           ${{ matrix.comp_er }} ${{ matrix.comp_args }} ${{ steps.get_name.outputs.NAME }}-${{ matrix.target }}.${{ matrix.comp_type }} split-gui${{ matrix.suffix }} ./split_gui/assets/
           ls
       - uses: actions/upload-artifact@v3
