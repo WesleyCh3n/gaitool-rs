@@ -9,7 +9,7 @@ use std::{
 use eframe::egui;
 fn main() {
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::Vec2 { x: 400., y: 110. }),
+        initial_window_size: Some(egui::Vec2 { x: 400., y: 140. }),
         drag_and_drop_support: true,
         ..Default::default()
     };
@@ -20,10 +20,11 @@ fn main() {
     );
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone)]
 struct ProcState {
     is_running: bool,
     percentage: f32,
+    msg: Option<String>,
 }
 
 struct Proc {
@@ -44,6 +45,7 @@ impl AppState {
         let state = Arc::new(Mutex::new(ProcState {
             is_running: false,
             percentage: 0.,
+            msg: None,
         }));
         spawn_repaint_thread(rx, state.clone(), cc.egui_ctx.clone());
         let process = Proc { state, sx };
@@ -63,32 +65,37 @@ impl eframe::App for AppState {
         ctx: &eframe::egui::Context,
         _frame: &mut eframe::Frame,
     ) {
+        load_fonts(ctx);
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.group(|ui| {
                 ui.horizontal(|ui| {
-                    if ui.button("Open Dir…").clicked() {
-                        if let Some(path) = rfd::FileDialog::new().pick_folder()
-                        {
-                            self.picked_dir = Some(path.display().to_string());
-                            self.sub_dirs = std::fs::read_dir(path)
-                                .unwrap()
-                                .into_iter()
-                                .filter(|d| {
-                                    d.as_ref()
-                                        .unwrap()
-                                        .metadata()
-                                        .unwrap()
-                                        .is_dir()
-                                })
-                                .map(|d| d.unwrap().path())
-                                .collect();
-                        }
-                    }
+                    ui.label("Folder: ");
                     ui.vertical_centered_justified(|ui| {
-                        if let Some(picked_dir) = &self.picked_dir {
-                            ui.strong(picked_dir);
-                        } else {
-                            ui.label("");
+                        let btn_label =
+                            if let Some(picked_dir) = &self.picked_dir {
+                                picked_dir
+                            } else {
+                                "Open or Drag Folder Here…"
+                            };
+                        if ui.button(btn_label).clicked() {
+                            if let Some(path) =
+                                rfd::FileDialog::new().pick_folder()
+                            {
+                                self.picked_dir =
+                                    Some(path.display().to_string());
+                                self.sub_dirs = std::fs::read_dir(path)
+                                    .unwrap()
+                                    .into_iter()
+                                    .filter(|d| {
+                                        d.as_ref()
+                                            .unwrap()
+                                            .metadata()
+                                            .unwrap()
+                                            .is_dir()
+                                    })
+                                    .map(|d| d.unwrap().path())
+                                    .collect();
+                            }
                         }
                     });
                 });
@@ -100,14 +107,23 @@ impl eframe::App for AppState {
                     );
                 })
             });
-            ui.vertical_centered(|ui| {
-                let p_state = *self.process.state.lock().unwrap();
-                /* if data == self.sub_dirs.len() as i32 {
-                    data = 0;
-                } */
-                ui.add_visible_ui(p_state.is_running, |ui| {
-                    ui.add(egui::ProgressBar::new(p_state.percentage));
+            let p_state = self.process.state.lock().unwrap();
+            ui.group(|ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Status: ");
+                    ui.add_visible_ui(p_state.is_running, |ui| {
+                        if let Some(dir) = &p_state.msg {
+                            ui.label(dir);
+                        }
+                    });
                 });
+                ui.vertical_centered(|ui| {
+                    ui.add_visible_ui(p_state.is_running, |ui| {
+                        ui.add(egui::ProgressBar::new(p_state.percentage));
+                    });
+                });
+            });
+            ui.vertical_centered(|ui| {
                 ui.add_enabled_ui(
                     !p_state.is_running && self.picked_dir.is_some(),
                     |ui| {
@@ -144,30 +160,39 @@ fn long_process(
         let mut p_state = ProcState {
             is_running: true,
             percentage: 0.,
+            msg: None,
         };
         let num_works = dirs.len() + 1;
         for (i, dir) in dirs.iter().enumerate() {
             p_state.percentage = (i + 1) as f32 / num_works as f32;
+            p_state.msg = Some(dir.display().to_string());
             sender.send(p_state.clone()).unwrap();
-            println!("{:?}", dir);
+
+            let output_dir = dir.parent().unwrap().join("output");
             for file in std::fs::read_dir(dir).unwrap() {
                 let file = file.unwrap().path();
-                split(
+                if let Err(e) = split(
                     &file,
-                    &PathBuf::from("./"),
+                    &output_dir,
                     percent,
-                    &PathBuf::from("./"),
+                    &PathBuf::from("./assets"),
                     None,
-                )
-                .unwrap();
+                ) {
+                    println!("{}", e);
+                    p_state.msg = Some(e.to_string());
+                    sender.send(p_state.clone()).unwrap();
+                }
             }
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
 
         p_state.percentage = 1.;
         sender.send(p_state.clone()).unwrap();
-
         std::thread::sleep(std::time::Duration::from_millis(500));
+
+        p_state.msg = Some("Finished".to_string());
+        sender.send(p_state.clone()).unwrap();
+        std::thread::sleep(std::time::Duration::from_secs(1));
         p_state.is_running = false;
         sender.send(p_state.clone()).unwrap();
     });
@@ -184,4 +209,19 @@ fn spawn_repaint_thread<T: std::marker::Send + 'static>(
             ctx.request_repaint();
         }
     });
+}
+
+fn load_fonts(ctx: &eframe::egui::Context) {
+    let mut font = egui::FontDefinitions::default();
+    font.font_data.insert(
+        String::from("chinese_fallback"),
+        egui::FontData::from_static(include_bytes!(
+            "../assets/NotoSansTC-Regular.otf"
+        )),
+    );
+    font.families
+        .get_mut(&egui::FontFamily::Proportional)
+        .unwrap()
+        .push("chinese_fallback".to_owned());
+    ctx.set_fonts(font);
 }
