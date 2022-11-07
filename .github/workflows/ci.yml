@@ -6,7 +6,7 @@ on:
     paths:
       - 'src/**'
       - 'assets/**'
-      - '.github/workflows/**'
+      - '.github/workflows/ci.yml'
     branches:
       - "main"
 
