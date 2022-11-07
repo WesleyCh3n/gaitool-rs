@@ -1,0 +1,91 @@
+---
+name: "Continuous Deployment"
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            suffix: ''
+            comp_er: tar
+            comp_args: -zcvf
+            comp_type: tar.gz
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            suffix: ''
+            comp_er: tar
+            comp_args: -zcvf
+            comp_type: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            suffix: .exe
+            comp_er: 7z
+            comp_args: 'a -tzip'
+            comp_type: zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - id: get_name
+        run: echo ::set-output name=NAME::split_gui
+        shell: bash
+      - uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions/cache@v1
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release -p split_gui
+      - name: Compress things up
+        run: |
+          cp ./target/release/split_gui${{ matrix.suffix }} ./
+          ${{ matrix.comp_er }} ${{ matrix.comp_args }} ${{ steps.get_name.outputs.NAME }}-${{ matrix.target }}.${{ matrix.comp_type }} split_gui${{ matrix.suffix }} ./split_gui/assets/
+          ls
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.get_name.outputs.NAME }}-${{ matrix.target }}
+          path: |
+            ${{ steps.get_name.outputs.NAME }}-${{ matrix.target }}.${{ matrix.comp_type }}
+          retention-days: 1
+
+  pre-release:
+    needs: build
+    name: "Tag Release"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - id: get_name
+        run: echo ::set-output name=NAME::split_gui
+        shell: bash
+      - uses: actions/download-artifact@master
+        with:
+          name: ${{ steps.get_name.outputs.REPO_NAME }}-x86_64-apple-darwin
+      - uses: actions/download-artifact@master
+        with:
+          name: ${{ steps.get_name.outputs.REPO_NAME }}-x86_64-unknown-linux-gnu
+      - uses: actions/download-artifact@master
+        with:
+          name: ${{ steps.get_name.outputs.REPO_NAME }}-x86_64-pc-windows-msvc
+      - uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          prerelease: false
+          files: |
+            ${{ steps.get_name.outputs.REPO_NAME }}-x86_64-apple-darwin.tar.gz
+            ${{ steps.get_name.outputs.REPO_NAME }}-x86_64-unknown-linux-gnu.tar.gz
+            ${{ steps.get_name.outputs.REPO_NAME }}-x86_64-pc-windows-msvc.zip
