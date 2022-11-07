@@ -55,6 +55,9 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+      - name: install atk
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y atk-dev
       - uses: actions-rs/cargo@v1
         with:
           command: build
