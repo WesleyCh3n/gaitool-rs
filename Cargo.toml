@@ -18,3 +18,8 @@ similar = {version="2.1.0", features=["inline"]}
 members = [
   "split_gui"
 ]
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
