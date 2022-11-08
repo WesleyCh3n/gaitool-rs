@@ -26,6 +26,9 @@ jobs:
       - name: set package name
         id: set_name
         run: echo "pkg_name=split_gui" >> $GITHUB_ENV
+      - name: echo
+        run: |
+          echo ${{ env.pkg_name }}
       - name: install rustlang
         run: |
           rustup set auto-self-update disable
@@ -55,9 +58,6 @@ jobs:
       - name: set package name
         id: set_name
         run: echo "pkg_name=split_gui" >> $GITHUB_ENV
-      - name: echo
-        run: |
-          echo ${{ env.pkg_name }}
       - uses: actions/download-artifact@master
         with:
           name: ${{ env.pkg_name }}-x86_64-apple-darwin
