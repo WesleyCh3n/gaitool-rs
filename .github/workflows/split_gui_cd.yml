@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: set package name
-        id: set_name
+        shell: bash
         run: echo "pkg_name=split_gui" >> $GITHUB_ENV
       - name: echo
         shell: bash
@@ -58,7 +58,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: set package name
-        id: set_name
+        shell: bash
         run: echo "pkg_name=split_gui" >> $GITHUB_ENV
       - uses: actions/download-artifact@master
         with:
