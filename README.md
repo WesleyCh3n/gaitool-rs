@@ -1,12 +1,11 @@
 # Analyze Gait
 
-[![Continuous Integration](https://github.com/WesleyCh3n/analyze.rs/actions/workflows/ci.yml/badge.svg)](https://github.com/WesleyCh3n/analyze.rs/actions/workflows/ci.yml)
-[![Continuous Deployment](https://github.com/WesleyCh3n/analyze.rs/actions/workflows/cd.yml/badge.svg)](https://github.com/WesleyCh3n/analyze.rs/actions/workflows/cd.yml)
+[![CI](https://github.com/WesleyCh3n/analyze.rs/actions/workflows/ci.yml/badge.svg)](https://github.com/WesleyCh3n/analyze.rs/actions/workflows/ci.yml)
+[![CD](https://github.com/WesleyCh3n/analyze.rs/actions/workflows/cd.yml/badge.svg)](https://github.com/WesleyCh3n/analyze.rs/actions/workflows/cd.yml)
 
-This is a command line tools to analyze human's gait data, including
-preprocessing, calculating gait cycle, remapping columns etc. Then
-the output is valid json api to
-[analyze.api](https://github.com/wesleych3n/analyze.api/).
+This is a command line tools to analyze human's gait raw data from
+[Noraxon myoRESEARCH](https://www.noraxon.com/our-products/myoresearch/),
+including preprocessing, calculating gait cycle, remapping columns etc.
 
 ## Getting Started
 
