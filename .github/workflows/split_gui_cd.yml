@@ -77,13 +77,13 @@ jobs:
         shell: bash
       - uses: actions/download-artifact@master
         with:
-          name: ${{ steps.get_name.outputs.REPO_NAME }}-x86_64-apple-darwin
+          name: ${{ steps.get_name.outputs.NAME }}-x86_64-apple-darwin
+      # - uses: actions/download-artifact@master
+      #   with:
+      #     name: ${{ steps.get_name.outputs.NAME }}-x86_64-unknown-linux-gnu
       - uses: actions/download-artifact@master
         with:
-          name: ${{ steps.get_name.outputs.REPO_NAME }}-x86_64-unknown-linux-gnu
-      - uses: actions/download-artifact@master
-        with:
-          name: ${{ steps.get_name.outputs.REPO_NAME }}-x86_64-pc-windows-msvc
+          name: ${{ steps.get_name.outputs.NAME }}-x86_64-pc-windows-msvc
       - uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -91,6 +91,6 @@ jobs:
           prerelease: true
           title: "Split GUI Build"
           files: |
-            ${{ steps.get_name.outputs.REPO_NAME }}-x86_64-apple-darwin.tar.gz
-            ${{ steps.get_name.outputs.REPO_NAME }}-x86_64-unknown-linux-gnu.tar.gz
-            ${{ steps.get_name.outputs.REPO_NAME }}-x86_64-pc-windows-msvc.zip
+            ${{ steps.get_name.outputs.NAME }}-x86_64-apple-darwin.tar.gz
+            # ${{ steps.get_name.outputs.NAME }}-x86_64-unknown-linux-gnu.tar.gz
+            ${{ steps.get_name.outputs.NAME }}-x86_64-pc-windows-msvc.zip
