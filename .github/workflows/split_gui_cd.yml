@@ -22,11 +22,10 @@ jobs:
             comp_type: zip
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: set package name
         id: set_name
         run: echo "pkg_name=split_gui" >> $GITHUB_ENV
-      - uses: actions/checkout@v3
       - name: install rustlang
         run: |
           rustup set auto-self-update disable
@@ -38,7 +37,7 @@ jobs:
       - name: Compress things up
         run: |
           cp ./target/release/split_gui${{ matrix.suffix }} ./split-gui${{ matrix.suffix }}
-          ${{ matrix.comp_er }} ${{ matrix.comp_args }} ${{ env.pkg_name }}-${{ matrix.target }}.${{ matrix.comp_type }} split-gui${{ matrix.suffix }} ./split_gui/assets/
+          ${{ matrix.comp_er }} ${{ matrix.comp_args }} "${{ env.pkg_name }}-${{ matrix.target }}.${{ matrix.comp_type }}" split-gui${{ matrix.suffix }} ./split_gui/assets/
           ls
       - uses: actions/upload-artifact@v3
         with:
@@ -52,10 +51,13 @@ jobs:
     name: "Tag Release"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: set package name
         id: set_name
         run: echo "pkg_name=split_gui" >> $GITHUB_ENV
+      - name: echo
+        run: |
+          echo ${{ env.pkg_name }}
       - uses: actions/download-artifact@master
         with:
           name: ${{ env.pkg_name }}-x86_64-apple-darwin
