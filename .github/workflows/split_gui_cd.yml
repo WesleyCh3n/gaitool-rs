@@ -27,6 +27,7 @@ jobs:
         id: set_name
         run: echo "pkg_name=split_gui" >> $GITHUB_ENV
       - name: echo
+        shell: bash
         run: |
           echo "${{ env.pkg_name }}"
       - name: install rustlang
@@ -38,6 +39,7 @@ jobs:
         run: |
           cargo build --release -p split_gui
       - name: Compress things up
+        shell: bash
         run: |
           cp ./target/release/split_gui${{ matrix.suffix }} ./split-gui${{ matrix.suffix }}
           ${{ matrix.comp_er }} ${{ matrix.comp_args }} "${{ env.pkg_name }}-${{ matrix.target }}.${{ matrix.comp_type }}" split-gui${{ matrix.suffix }} ./split_gui/assets/
