@@ -208,15 +208,20 @@ fn run_split(
             sender.send(p_state.clone()).unwrap();
 
             for file in std::fs::read_dir(dir).unwrap() {
-                p_state.msg = Some(format!(
-                    "Splitting {} {}",
-                    dir.display().to_string(),
-                    chars_it.next().unwrap()
-                ));
-                sender.send(p_state.clone()).unwrap();
                 let file = file.unwrap().path();
                 let filename =
                     file.file_name().unwrap().to_str().unwrap().to_string();
+                p_state.msg = Some(format!(
+                    "Splitting {} {}",
+                    file.parent()
+                        .unwrap()
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap(),
+                    filename
+                ));
+                sender.send(p_state.clone()).unwrap();
                 let name_vec = filename.split("-").collect::<Vec<&str>>();
                 if name_vec.len() < 10 {
                     continue;
