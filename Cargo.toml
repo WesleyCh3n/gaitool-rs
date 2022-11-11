@@ -16,7 +16,8 @@ similar = {version="2.1.0", features=["inline"]}
 
 [workspace]
 members = [
-  "split_gui"
+  "split_gui",
+  "chart_gui"
 ]
 
 [profile.release]
