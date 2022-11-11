@@ -51,6 +51,7 @@ impl AppState {
         spawn_repaint_thread(rx, state.clone(), cc.egui_ctx.clone());
         let process = Proc { state, sx };
 
+        load_fonts(&cc.egui_ctx);
         Self {
             slider_value: 70,
             process,
@@ -67,7 +68,6 @@ impl eframe::App for AppState {
         ctx: &eframe::egui::Context,
         _frame: &mut eframe::Frame,
     ) {
-        load_fonts(ctx);
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.group(|ui| {
                 ui.horizontal(|ui| {
