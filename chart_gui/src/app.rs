@@ -20,11 +20,19 @@ impl eframe::App for App {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Open File").clicked() {}
-                    if ui.button("Open Folder").clicked() {}
+                    if ui.button("Open Folder").clicked() {
+                        self.chart.open_dir(&std::path::PathBuf::from(""));
+                        self.chart.state.side_panel_open = true;
+                        ui.close_menu();
+                    }
                     ui.separator();
                     if ui.button("Exit").clicked() {
                         frame.close();
                     }
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.toggle_value(&mut self.chart.state.side_panel_open, "Tools");
+                    ui.separator();
                 });
             })
         });
