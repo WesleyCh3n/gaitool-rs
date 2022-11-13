@@ -1,10 +1,11 @@
+#![windows_subsystem = "windows"]
+
 mod app;
 mod chart;
 
 use app::App;
 
 pub trait View {
-    fn ui(&mut self, ui: &mut eframe::egui::Ui);
     fn show(&mut self, ctx: &eframe::egui::Context);
 }
 
@@ -14,9 +15,5 @@ fn main() {
         drag_and_drop_support: true,
         ..Default::default()
     };
-    eframe::run_native(
-        "Split Gait",
-        options,
-        Box::new(|cc| Box::new(App::new(cc))),
-    );
+    eframe::run_native("Gaitool", options, Box::new(|cc| Box::new(App::new(cc))));
 }
