@@ -51,6 +51,14 @@ impl Chart {
             file_list,
             ..
         } = self;
+        // open folder
+        // loop
+        //   detect if files process
+        //   if true
+        //     pos_list.push(pos)
+        //     var_list.push(var)
+        //   else
+        //     pop up window
         *pos_list = vec!["L", "T"].iter().map(|s| s.to_string()).collect();
         *pos_selected = Some(0);
         *var_list = vec!["Acceleration X", " Gyroscope X"]
@@ -98,9 +106,12 @@ fn chart_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
     let egui::Vec2 { y, .. } = ui.available_size();
     if *show_boxplot {
         let box1 = BoxPlot::new(vec![
-            BoxElem::new(0.5, BoxSpread::new(1.5, 2.2, 2.5, 2.6, 3.1)).name("Day 1"),
-            BoxElem::new(2.5, BoxSpread::new(0.4, 1.0, 1.1, 1.4, 2.1)).name("Day 2"),
-            BoxElem::new(4.5, BoxSpread::new(1.7, 2.0, 2.2, 2.5, 2.9)).name("Day 3"),
+            BoxElem::new(0.5, BoxSpread::new(1.5, 2.2, 2.5, 2.6, 3.1))
+                .name("Day 1"),
+            BoxElem::new(2.5, BoxSpread::new(0.4, 1.0, 1.1, 1.4, 2.1))
+                .name("Day 2"),
+            BoxElem::new(4.5, BoxSpread::new(1.7, 2.0, 2.2, 2.5, 2.9))
+                .name("Day 3"),
         ])
         .name("Experiment A");
         let box2 = BoxPlot::new(vec![BoxElem::new(
@@ -208,15 +219,18 @@ fn side_panel_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
             // .max_height(200.0)
             .auto_shrink([false; 2])
             .show(ui, |ui| {
-                egui::Grid::new("files")
-                    .striped(true)
-                    .num_columns(1)
-                    .show(ui, |ui| {
+                egui::Grid::new("files").striped(true).num_columns(1).show(
+                    ui,
+                    |ui| {
                         for row in file_list {
-                            ui.checkbox(&mut row.is_selected, row.path.as_str());
+                            ui.checkbox(
+                                &mut row.is_selected,
+                                row.path.as_str(),
+                            );
                             ui.end_row();
                         }
-                    });
+                    },
+                );
             });
     });
 }
