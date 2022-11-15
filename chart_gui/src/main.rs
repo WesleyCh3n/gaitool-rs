@@ -15,5 +15,10 @@ fn main() {
         drag_and_drop_support: true,
         ..Default::default()
     };
-    eframe::run_native("Gaitool", options, Box::new(|cc| Box::new(App::new(cc))));
+    println!("test");
+    eframe::run_native(
+        "Gaitool",
+        options,
+        Box::new(|cc| Box::new(App::new(cc))),
+    );
 }

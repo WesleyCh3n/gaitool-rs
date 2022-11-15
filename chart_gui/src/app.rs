@@ -21,7 +21,7 @@ impl eframe::App for App {
                 ui.menu_button("File", |ui| {
                     if ui.button("Open File").clicked() {}
                     if ui.button("Open Folder").clicked() {
-                        self.chart.open_dir(&std::path::PathBuf::from(""));
+                        self.chart.open_dir("");
                         self.chart.state.side_panel_open = true;
                         ui.close_menu();
                     }
@@ -30,10 +30,16 @@ impl eframe::App for App {
                         frame.close();
                     }
                 });
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.toggle_value(&mut self.chart.state.side_panel_open, "Tools");
-                    ui.separator();
-                });
+                ui.with_layout(
+                    egui::Layout::right_to_left(egui::Align::Center),
+                    |ui| {
+                        ui.toggle_value(
+                            &mut self.chart.state.side_panel_open,
+                            "Tools",
+                        );
+                        ui.separator();
+                    },
+                );
             })
         });
         use super::View as _;

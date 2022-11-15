@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use eframe::egui::{
     self,
     plot::{BoxElem, BoxPlot, BoxSpread, Legend, Line, Plot, PlotPoints},
@@ -8,6 +6,7 @@ use eframe::egui::{
 
 pub struct State {
     pub side_panel_open: bool,
+    unprocess_dialog: bool,
 }
 
 pub struct FileList {
@@ -34,46 +33,76 @@ impl Chart {
             var_list: Vec::new(),
             var_selected: None,
             file_list: Vec::new(),
-            show_boxplot: true,
-            show_lineplot: true,
+            show_boxplot: false,
+            show_lineplot: false,
             state: State {
-                side_panel_open: true,
+                side_panel_open: false,
+                unprocess_dialog: false,
             },
         }
     }
 
-    pub fn open_dir(&mut self, _path: &PathBuf) {
+    pub fn open_dir<P: AsRef<std::path::Path>>(&mut self, _path: P) {
         let Self {
-            pos_list,
-            pos_selected,
-            var_list,
-            var_selected,
-            file_list,
+            pos_list: _,
+            pos_selected: _,
+            var_list: _,
+            var_selected: _,
+            file_list: _,
             ..
         } = self;
         // open folder
-        // loop
+        // unprocess_vec = []
+        // loop folder
         //   detect if files process
         //   if true
         //     pos_list.push(pos)
         //     var_list.push(var)
         //   else
-        //     pop up window
-        *pos_list = vec!["L", "T"].iter().map(|s| s.to_string()).collect();
-        *pos_selected = Some(0);
-        *var_list = vec!["Acceleration X", " Gyroscope X"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
-        *var_selected = Some(0);
-        file_list.push(FileList {
-            path: String::from("this is file 1"),
-            is_selected: true,
+        //     unprocess_vec.push(file)
+        // if !unprocess_vec.is_empty()
+        //   show_pop_up_win_flag = true
+
+        // actually this should be a long task so it should be in a thread
+        std::thread::spawn(|| {
+            println!("test");
         });
-        file_list.push(FileList {
-            path: String::from("this is file 2"),
-            is_selected: false,
-        });
+        if let Some(path) = rfd::FileDialog::new().pick_folder() {
+            for entries in std::fs::read_dir(path).unwrap() {
+                if let Ok(entry) = entries {
+                    // preprocess
+                    let raw_file = std::fs::File::open(entry.path())
+                        .expect("Can't open raw file");
+                    let reader_raw = std::io::BufReader::new(raw_file);
+                    let mut rdr = csv::ReaderBuilder::new()
+                        .has_headers(false)
+                        .from_reader(reader_raw);
+                    println!("{:?}", entry);
+                    for result in rdr.records().take(2) {
+                        println!("result: {:?}", result);
+                    }
+                    // file_list.push(FileList {
+                    //     path: entry.file_name().to_str().unwrap().to_string(),
+                    //     is_selected: false,
+                    // })
+                }
+            }
+        }
+        // *pos_list = vec!["L", "T"].iter().map(|s| s.to_string()).collect();
+        // *pos_selected = Some(0);
+        // *var_list = vec!["Acceleration X", " Gyroscope X"]
+        //     .iter()
+        //     .map(|s| s.to_string())
+        //     .collect();
+        // *var_selected = Some(0);
+        // file_list.push(FileList {
+        //     path: String::from("this is file 1"),
+        //     is_selected: true,
+        // });
+        // file_list.push(FileList {
+        //     path: String::from("this is file 2"),
+        //     is_selected: false,
+        // });
     }
 }
 
@@ -81,7 +110,7 @@ impl super::View for Chart {
     fn show(&mut self, ctx: &eframe::egui::Context) {
         if self.state.side_panel_open {
             egui::SidePanel::right("right files panel")
-                .resizable(false)
+                // .resizable(true)
                 .show(ctx, |ui| {
                     side_panel_ui(self, ui);
                 });
@@ -89,6 +118,23 @@ impl super::View for Chart {
         egui::CentralPanel::default().show(ctx, |ui| {
             chart_ui(self, ui);
         });
+
+        if self.state.unprocess_dialog {
+            egui::Window::new("unprocess_dialog")
+                .collapsible(false)
+                .title_bar(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
+                .show(ctx, |ui| {
+                    ui.label("hello");
+                    ui.horizontal(|ui| {
+                        if ui.button("Ok").clicked() {};
+                        if ui.button("Cancel").clicked() {
+                            self.state.unprocess_dialog = false;
+                        };
+                    })
+                });
+        }
     }
 }
 
@@ -215,7 +261,8 @@ fn side_panel_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
     ui.add_space(4.0);
     ui.heading("File List");
     ui.group(|ui| {
-        ScrollArea::vertical()
+        ScrollArea::horizontal()
+            .vscroll(true)
             // .max_height(200.0)
             .auto_shrink([false; 2])
             .show(ui, |ui| {
