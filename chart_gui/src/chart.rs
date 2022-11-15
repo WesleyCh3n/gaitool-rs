@@ -3,7 +3,7 @@ use eframe::egui::{
     plot::{BoxElem, BoxPlot, BoxSpread, Legend, Line, Plot, PlotPoints},
     ScrollArea,
 };
-use gaitool_rs::utils::preprocess::is_file_valid;
+use gaitool_rs::utils::preprocess::extract_info;
 
 pub struct State {
     pub side_panel_open: bool,
@@ -73,11 +73,18 @@ impl Chart {
         if let Some(path) = rfd::FileDialog::new().pick_folder() {
             for entries in std::fs::read_dir(path).unwrap() {
                 if let Ok(entry) = entries {
-                    if !is_file_valid(entry.path()) {
+                    let info = extract_info(entry.path());
+                    if info[0].len() != 12 || info[1].len() != 12 {
                         *unprocess_dialog = true;
                         *side_panel_open = false;
                         return;
                     }
+                    if info[0][5] != String::from("exported with version") {
+                        *unprocess_dialog = true;
+                        *side_panel_open = false;
+                        return;
+                    }
+                    println!("{:?}", info);
                     file_list.push(FileList {
                         path: entry.file_name().to_str().unwrap().to_string(),
                         is_selected: false,

@@ -158,7 +158,7 @@ pub fn cal_x_support(df: &DataFrame, sup_type: &str) -> Result<DataFrame> {
     Ok(df!("start" => s_vec, "end" => e_vec)?)
 }
 
-pub fn is_file_valid<P: AsRef<std::path::Path>>(path: P) -> bool {
+pub fn extract_info<P: AsRef<std::path::Path>>(path: P) -> Vec<Vec<String>> {
     let raw_file = std::fs::File::open(path).expect("Can't open raw file");
     let reader_raw = std::io::BufReader::new(raw_file);
     let mut rdr = csv::ReaderBuilder::new()
@@ -178,8 +178,9 @@ pub fn is_file_valid<P: AsRef<std::path::Path>>(path: P) -> bool {
             v
         })
         .collect();
-    if info[0].len() != 12 || info[1].len() != 12 {
-        return false;
-    }
-    return true;
+    info
+    // if info[0].len() != 12 || info[1].len() != 12 {
+    //     return false;
+    // }
+    // return true;
 }
