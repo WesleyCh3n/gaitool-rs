@@ -3,6 +3,7 @@ use eframe::egui::{
     plot::{BoxElem, BoxPlot, BoxSpread, Legend, Line, Plot, PlotPoints},
     ScrollArea,
 };
+use gaitool_rs::utils::preprocess::is_file_valid;
 
 pub struct State {
     pub side_panel_open: bool,
@@ -42,13 +43,18 @@ impl Chart {
         }
     }
 
-    pub fn open_dir<P: AsRef<std::path::Path>>(&mut self, _path: P) {
+    pub fn open_dir(&mut self) {
         let Self {
             pos_list: _,
             pos_selected: _,
             var_list: _,
             var_selected: _,
-            file_list: _,
+            file_list,
+            state:
+                State {
+                    side_panel_open,
+                    unprocess_dialog,
+                },
             ..
         } = self;
         // open folder
@@ -63,30 +69,26 @@ impl Chart {
         // if !unprocess_vec.is_empty()
         //   show_pop_up_win_flag = true
 
-        // actually this should be a long task so it should be in a thread
-        std::thread::spawn(|| {
-            println!("test");
-        });
+        file_list.clear();
         if let Some(path) = rfd::FileDialog::new().pick_folder() {
             for entries in std::fs::read_dir(path).unwrap() {
                 if let Ok(entry) = entries {
-                    // preprocess
-                    let raw_file = std::fs::File::open(entry.path())
-                        .expect("Can't open raw file");
-                    let reader_raw = std::io::BufReader::new(raw_file);
-                    let mut rdr = csv::ReaderBuilder::new()
-                        .has_headers(false)
-                        .from_reader(reader_raw);
-                    println!("{:?}", entry);
-                    for result in rdr.records().take(2) {
-                        println!("result: {:?}", result);
+                    if !is_file_valid(entry.path()) {
+                        *unprocess_dialog = true;
+                        *side_panel_open = false;
+                        return;
                     }
-                    // file_list.push(FileList {
-                    //     path: entry.file_name().to_str().unwrap().to_string(),
-                    //     is_selected: false,
-                    // })
+                    file_list.push(FileList {
+                        path: entry.file_name().to_str().unwrap().to_string(),
+                        is_selected: false,
+                    })
                 }
             }
+            file_list[0].is_selected = true;
+            // get pos
+            // get var
+            // get data
+            *side_panel_open = true;
         }
         // *pos_list = vec!["L", "T"].iter().map(|s| s.to_string()).collect();
         // *pos_selected = Some(0);

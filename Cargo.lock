@@ -271,6 +271,7 @@ version = "0.1.0"
 dependencies = [
  "csv",
  "eframe",
+ "gaitool-rs",
  "rfd",
 ]
 
@@ -917,6 +918,7 @@ name = "gaitool-rs"
 version = "2.0.0"
 dependencies = [
  "clap",
+ "csv",
  "indicatif",
  "polars",
  "serde_json",

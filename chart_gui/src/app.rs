@@ -21,8 +21,7 @@ impl eframe::App for App {
                 ui.menu_button("File", |ui| {
                     if ui.button("Open File").clicked() {}
                     if ui.button("Open Folder").clicked() {
-                        self.chart.open_dir("");
-                        self.chart.state.side_panel_open = true;
+                        self.chart.open_dir();
                         ui.close_menu();
                     }
                     ui.separator();

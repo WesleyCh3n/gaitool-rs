@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 
 mod app;
 mod chart;
@@ -15,7 +15,6 @@ fn main() {
         drag_and_drop_support: true,
         ..Default::default()
     };
-    println!("test");
     eframe::run_native(
         "Gaitool",
         options,
