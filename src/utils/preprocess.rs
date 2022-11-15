@@ -157,3 +157,29 @@ pub fn cal_x_support(df: &DataFrame, sup_type: &str) -> Result<DataFrame> {
     }
     Ok(df!("start" => s_vec, "end" => e_vec)?)
 }
+
+pub fn is_file_valid<P: AsRef<std::path::Path>>(path: P) -> bool {
+    let raw_file = std::fs::File::open(path).expect("Can't open raw file");
+    let reader_raw = std::io::BufReader::new(raw_file);
+    let mut rdr = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .from_reader(reader_raw);
+    let info: Vec<Vec<String>> = rdr
+        .records()
+        .take(2)
+        .map(|row| {
+            let r = row.expect("a valid csv entry");
+            let mut v = Vec::new();
+            for i in 0..r.len() {
+                let range = r.range(i).expect("a range");
+                let value = &r.as_slice()[range];
+                v.push(value.to_string().clone());
+            }
+            v
+        })
+        .collect();
+    if info[0].len() != 12 || info[1].len() != 12 {
+        return false;
+    }
+    return true;
+}
