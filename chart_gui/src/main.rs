@@ -2,6 +2,8 @@
 
 mod app;
 mod chart;
+mod config;
+mod data_process;
 
 use app::App;
 

@@ -3,7 +3,11 @@ use eframe::egui::{
     plot::{BoxElem, BoxPlot, BoxSpread, Legend, Line, Plot, PlotPoints},
     ScrollArea,
 };
-use gaitool_rs::utils::preprocess::extract_info;
+
+use crate::{
+    config::{Position, Variable},
+    data_process::{extract_info, RawData},
+};
 
 pub struct State {
     pub side_panel_open: bool,
@@ -12,14 +16,15 @@ pub struct State {
 
 pub struct FileList {
     path: String,
+    raw_data: RawData,
     is_selected: bool,
 }
 
 pub struct Chart {
-    pos_list: Vec<String>,
-    pos_selected: Option<usize>,
-    var_list: Vec<String>,
-    var_selected: Option<usize>,
+    pos: Position,
+    var: Variable,
+    // pos_selected: Option<usize>,
+    // var_selected: Option<usize>,
     file_list: Vec<FileList>,
     show_boxplot: bool,
     show_lineplot: bool,
@@ -29,10 +34,10 @@ pub struct Chart {
 impl Chart {
     pub fn new() -> Self {
         Self {
-            pos_list: Vec::new(),
-            pos_selected: None,
-            var_list: Vec::new(),
-            var_selected: None,
+            pos: Position::L,
+            var: Variable::AccelX,
+            // pos_selected: None,
+            // var_selected: None,
             file_list: Vec::new(),
             show_boxplot: false,
             show_lineplot: false,
@@ -45,10 +50,6 @@ impl Chart {
 
     pub fn open_dir(&mut self) {
         let Self {
-            pos_list: _,
-            pos_selected: _,
-            var_list: _,
-            var_selected: _,
             file_list,
             state:
                 State {
@@ -57,18 +58,6 @@ impl Chart {
                 },
             ..
         } = self;
-        // open folder
-        // unprocess_vec = []
-        // loop folder
-        //   detect if files process
-        //   if true
-        //     pos_list.push(pos)
-        //     var_list.push(var)
-        //   else
-        //     unprocess_vec.push(file)
-        // if !unprocess_vec.is_empty()
-        //   show_pop_up_win_flag = true
-
         file_list.clear();
         if let Some(path) = rfd::FileDialog::new().pick_folder() {
             for entries in std::fs::read_dir(path).unwrap() {
@@ -87,31 +76,15 @@ impl Chart {
                     println!("{:?}", info);
                     file_list.push(FileList {
                         path: entry.file_name().to_str().unwrap().to_string(),
+                        raw_data: RawData::new(entry.path()),
                         is_selected: false,
                     })
                 }
             }
             file_list[0].is_selected = true;
-            // get pos
-            // get var
             // get data
             *side_panel_open = true;
         }
-        // *pos_list = vec!["L", "T"].iter().map(|s| s.to_string()).collect();
-        // *pos_selected = Some(0);
-        // *var_list = vec!["Acceleration X", " Gyroscope X"]
-        //     .iter()
-        //     .map(|s| s.to_string())
-        //     .collect();
-        // *var_selected = Some(0);
-        // file_list.push(FileList {
-        //     path: String::from("this is file 1"),
-        //     is_selected: true,
-        // });
-        // file_list.push(FileList {
-        //     path: String::from("this is file 2"),
-        //     is_selected: false,
-        // });
     }
 }
 
@@ -151,6 +124,9 @@ fn chart_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
     let Chart {
         show_boxplot,
         show_lineplot,
+        file_list,
+        pos,
+        var,
         ..
     } = app;
     if !*show_boxplot && !*show_lineplot {
@@ -158,7 +134,12 @@ fn chart_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
             ui.label("Please select one chart");
         });
     }
-    let egui::Vec2 { y, .. } = ui.available_size();
+    if file_list.is_empty() {
+        return;
+    }
+
+    let y = ui.available_height();
+
     if *show_boxplot {
         let box1 = BoxPlot::new(vec![
             BoxElem::new(0.5, BoxSpread::new(1.5, 2.2, 2.5, 2.6, 3.1))
@@ -185,25 +166,25 @@ fn chart_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
             });
     }
     if *show_lineplot {
-        let sin: PlotPoints = (0..1000)
-            .map(|i| {
-                let x = i as f64 * 0.01;
-                [x, x.sin()]
-            })
-            .collect();
-        let cos: PlotPoints = (0..1000)
-            .map(|i| {
-                let x = i as f64 * 0.01;
-                [x, x.cos()]
-            })
-            .collect();
         Plot::new("my_plot")
             .legend(Legend::default()) // with .name() method
             .height(if !*show_boxplot { y } else { y * 2. / 3. })
             .include_x(0.) // show x axis label
             .show(ui, |plot_ui| {
-                plot_ui.line(Line::new(sin).name("sin"));
-                plot_ui.line(Line::new(cos).name("cos"));
+                for f in file_list {
+                    if f.is_selected {
+                        let (x, y) = (
+                            &f.raw_data.x,
+                            &f.raw_data.y.get(pos).unwrap().get(var).unwrap(),
+                        );
+                        let data: PlotPoints = x
+                            .into_iter()
+                            .zip(y.into_iter())
+                            .map(|(a, b)| [a.clone(), b.clone()])
+                            .collect();
+                        plot_ui.line(Line::new(data).name(&*f.path));
+                    }
+                }
             });
     }
 }
@@ -212,11 +193,13 @@ fn side_panel_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
     let Chart {
         show_boxplot,
         show_lineplot,
-        pos_list,
-        pos_selected,
-        var_list,
-        var_selected,
+        // pos_list,
+        // pos_selected,
+        // var_list,
+        // var_selected,
         file_list,
+        pos,
+        var,
         ..
     } = app;
     egui::Grid::new("options")
@@ -226,30 +209,20 @@ fn side_panel_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
             ui.heading("Options");
             ui.end_row();
             ui.label("Position: ");
-            let selected_text = if let Some(i) = pos_selected {
-                pos_list[*i].clone()
-            } else {
-                "".to_owned()
-            };
             egui::ComboBox::from_id_source("combo")
-                .selected_text(selected_text)
+                .selected_text(format!("{:?}", pos))
                 .show_ui(ui, |ui| {
-                    pos_list.iter().enumerate().for_each(|(i, p)| {
-                        ui.selectable_value(pos_selected, Some(i), p);
+                    Position::iterator().for_each(|p| {
+                        ui.selectable_value(pos, p.clone(), format!("{:?}", p));
                     });
                 });
             ui.end_row();
             ui.label("Variable: ");
-            let selected_text = if let Some(i) = var_selected {
-                var_list[*i].clone()
-            } else {
-                "".to_owned()
-            };
             egui::ComboBox::from_id_source("var_combo")
-                .selected_text(selected_text)
+                .selected_text(format!("{:?}", var))
                 .show_ui(ui, |ui| {
-                    var_list.iter().enumerate().for_each(|(i, v)| {
-                        ui.selectable_value(var_selected, Some(i), v);
+                    Variable::iterator().for_each(|v| {
+                        ui.selectable_value(var, v.clone(), format!("{:?}", v));
                     });
                 });
             ui.end_row();
