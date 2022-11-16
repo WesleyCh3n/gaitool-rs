@@ -23,8 +23,6 @@ pub struct FileList {
 pub struct Chart {
     pos: Position,
     var: Variable,
-    // pos_selected: Option<usize>,
-    // var_selected: Option<usize>,
     file_list: Vec<FileList>,
     show_boxplot: bool,
     show_lineplot: bool,
@@ -36,8 +34,6 @@ impl Chart {
         Self {
             pos: Position::L,
             var: Variable::AccelX,
-            // pos_selected: None,
-            // var_selected: None,
             file_list: Vec::new(),
             show_boxplot: false,
             show_lineplot: false,
@@ -73,7 +69,6 @@ impl Chart {
                         *side_panel_open = false;
                         return;
                     }
-                    println!("{:?}", info);
                     file_list.push(FileList {
                         path: entry.file_name().to_str().unwrap().to_string(),
                         raw_data: RawData::new(entry.path()),
@@ -82,7 +77,6 @@ impl Chart {
                 }
             }
             file_list[0].is_selected = true;
-            // get data
             *side_panel_open = true;
         }
     }
@@ -141,41 +135,83 @@ fn chart_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
     let y = ui.available_height();
 
     if *show_boxplot {
-        let box1 = BoxPlot::new(vec![
-            BoxElem::new(0.5, BoxSpread::new(1.5, 2.2, 2.5, 2.6, 3.1))
-                .name("Day 1"),
-            BoxElem::new(2.5, BoxSpread::new(0.4, 1.0, 1.1, 1.4, 2.1))
-                .name("Day 2"),
-            BoxElem::new(4.5, BoxSpread::new(1.7, 2.0, 2.2, 2.5, 2.9))
-                .name("Day 3"),
-        ])
-        .name("Experiment A");
-        let box2 = BoxPlot::new(vec![BoxElem::new(
-            1.0,
-            BoxSpread::new(0.2, 0.5, 1.0, 2.0, 2.7),
-        )
-        .name("Day 2")])
-        .name("Experiment B");
-        Plot::new("Box Plot Demo")
+        Plot::new("Box Plot")
             .height(if !*show_lineplot { y } else { y / 3. })
             .include_x(0.)
             .legend(Legend::default())
             .show(ui, |plot_ui| {
-                plot_ui.box_plot(box1);
-                plot_ui.box_plot(box2);
+                let mut i = 0.;
+                for f in file_list.into_iter() {
+                    if f.is_selected {
+                        let (_, min, q1, mid, q3, max) =
+                            &f.raw_data.y.get(pos).unwrap().get(var).unwrap();
+                        plot_ui.box_plot(
+                            BoxPlot::new(vec![BoxElem::new(
+                                i,
+                                BoxSpread::new(
+                                    min.clone(),
+                                    q1.clone(),
+                                    mid.clone(),
+                                    q3.clone(),
+                                    max.clone(),
+                                ),
+                            )])
+                            .name(&*f.path),
+                        );
+                        i += 0.5;
+                    }
+                }
             });
     }
     if *show_lineplot {
-        Plot::new("my_plot")
+        Plot::new("Line Plot")
             .legend(Legend::default()) // with .name() method
             .height(if !*show_boxplot { y } else { y * 2. / 3. })
             .include_x(0.) // show x axis label
             .show(ui, |plot_ui| {
                 for f in file_list {
                     if f.is_selected {
-                        let (x, y) = (
+                        let (x, (y, min, _, _, _, max)) = (
                             &f.raw_data.x,
                             &f.raw_data.y.get(pos).unwrap().get(var).unwrap(),
+                        );
+                        plot_ui.line(
+                            Line::new(
+                                x.into_iter()
+                                    .zip((&f.raw_data.l_contact).into_iter())
+                                    .map(|(a, b)| {
+                                        let upper_bound = if b.gt(&0) {
+                                            max.clone()
+                                        } else {
+                                            min.clone()
+                                        };
+                                        [a.clone(), upper_bound]
+                                    })
+                                    .collect::<PlotPoints>(),
+                            )
+                            .fill(*min as f32)
+                            .color(egui::Color32::LIGHT_BLUE)
+                            .width(0.)
+                            .name(format!("{} L Contact", f.path)),
+                        );
+                        plot_ui.line(
+                            Line::new(
+                                x.into_iter()
+                                    .zip((&f.raw_data.r_contact).into_iter())
+                                    .map(|(a, b)| {
+                                        let upper_bound = if b.gt(&0) {
+                                            max.clone()
+                                        } else {
+                                            min.clone()
+                                        };
+                                        [a.clone(), upper_bound]
+                                    })
+                                    .collect::<PlotPoints>(),
+                            )
+                            .fill(*min as f32)
+                            .color(egui::Color32::LIGHT_GREEN)
+                            .width(0.)
+                            .name(format!("{} R Contact", f.path)),
                         );
                         let data: PlotPoints = x
                             .into_iter()
@@ -193,10 +229,6 @@ fn side_panel_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
     let Chart {
         show_boxplot,
         show_lineplot,
-        // pos_list,
-        // pos_selected,
-        // var_list,
-        // var_selected,
         file_list,
         pos,
         var,

@@ -1,24 +1,23 @@
 use crate::config::{Position, Variable};
-use polars::{io::csv::CsvReader, prelude::SerReader};
+use polars::{io::csv::CsvReader, prelude::*};
 use std::collections::HashMap;
 
 pub struct RawData {
     pub x: Vec<f64>,
-    pub y: HashMap<Position, HashMap<Variable, Vec<f64>>>,
+    pub y: HashMap<
+        Position,
+        HashMap<Variable, (Vec<f64>, f64, f64, f64, f64, f64)>,
+    >,
+    pub l_contact: Vec<i64>,
+    pub r_contact: Vec<i64>,
 }
 
 impl RawData {
     pub fn new<P: AsRef<std::path::Path>>(path: P) -> Self {
         Self::get_data(path).unwrap()
-        // Self {
-        //     x: vec![],
-        //     y: HashMap::new(),
-        // }
     }
 
-    pub fn get_data<P: AsRef<std::path::Path>>(
-        path: P,
-    ) -> Result<Self, polars::error::PolarsError> {
+    pub fn get_data<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
         let df = CsvReader::from_path(path.as_ref())?
             .with_skip_rows(3)
             .finish()?;
@@ -28,26 +27,77 @@ impl RawData {
             .f64()?
             .into_no_null_iter()
             .collect::<Vec<f64>>();
-        println!("{:?}", df);
-        println!("x len: {:?}", x.len());
+        let df_quantile = df
+            .clone()
+            .lazy()
+            .select([
+                all().min().suffix("_min"),
+                all()
+                    .quantile(0.25, QuantileInterpolOptions::Nearest)
+                    .suffix("_Q1"),
+                all().median().suffix("_median"),
+                all()
+                    .quantile(0.75, QuantileInterpolOptions::Nearest)
+                    .suffix("_Q3"),
+                all().max().suffix("_max"),
+            ])
+            .collect()?;
 
-        let mut y: HashMap<Position, HashMap<Variable, Vec<f64>>> =
-            HashMap::new();
+        let mut y = HashMap::new();
         for p in Position::iterator() {
-            let mut variables: HashMap<Variable, Vec<f64>> = HashMap::new();
+            let mut variables = HashMap::new();
             for v in Variable::iterator() {
-                variables.entry(v.clone()).or_insert(
-                    df.column(Variable::to_name_string(v, p).as_str())?
+                let col_name = Variable::to_name_string(v, p);
+                variables.entry(v.clone()).or_insert((
+                    df.column(&col_name)?
                         .f64()?
                         .into_no_null_iter()
                         .collect::<Vec<f64>>(),
-                );
+                    df_quantile
+                        .column(&format!("{}_min", col_name))?
+                        .f64()?
+                        .get(0)
+                        .unwrap(),
+                    df_quantile
+                        .column(&format!("{}_Q1", col_name))?
+                        .f64()?
+                        .get(0)
+                        .unwrap(),
+                    df_quantile
+                        .column(&format!("{}_median", col_name))?
+                        .f64()?
+                        .get(0)
+                        .unwrap(),
+                    df_quantile
+                        .column(&format!("{}_Q3", col_name))?
+                        .f64()?
+                        .get(0)
+                        .unwrap(),
+                    df_quantile
+                        .column(&format!("{}_max", col_name))?
+                        .f64()?
+                        .get(0)
+                        .unwrap(),
+                ));
             }
             y.entry(p.clone()).or_insert(variables);
         }
-        println!("keys: {:?}", y.keys());
-        // insert gait time
-        Ok(Self { x, y })
+        let l_contact = df
+            .column("Noraxon MyoMotion-Segments-Foot LT-Contact")?
+            .i64()?
+            .into_no_null_iter()
+            .collect::<Vec<i64>>();
+        let r_contact = df
+            .column("Noraxon MyoMotion-Segments-Foot RT-Contact")?
+            .i64()?
+            .into_no_null_iter()
+            .collect::<Vec<i64>>();
+        Ok(Self {
+            x,
+            y,
+            l_contact,
+            r_contact,
+        })
     }
 }
 
