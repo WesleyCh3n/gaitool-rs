@@ -70,7 +70,32 @@ impl super::View for Chart {
             });
         }
         egui::CentralPanel::default().show(ctx, |ui| {
-            chart_ui(self, ui);
+            if !self.state.show_boxplot && !self.state.show_lineplot {
+                ui.centered_and_justified(|ui| {
+                    ui.label("Please select one chart");
+                });
+            }
+            let egui::Vec2 { x, y } = ui.available_size();
+            let size = egui::vec2(x - 15., y / 2. - 30.);
+            if self.state.show_boxplot {
+                egui::Window::new("Box Plot")
+                    .resizable(true)
+                    .default_pos(egui::pos2(0., 0.))
+                    .default_size(size)
+                    .collapsible(false)
+                    .show(ctx, |ui| {
+                        box_plot(self, ui);
+                    });
+            }
+            if self.state.show_lineplot {
+                egui::Window::new("Line Plot")
+                    .resizable(true)
+                    .default_size(size)
+                    .collapsible(false)
+                    .show(ctx, |ui| {
+                        line_plot(self, ui);
+                    });
+            }
         });
 
         if self.state.unprocess_dialog {
@@ -129,28 +154,14 @@ impl super::View for Chart {
     }
 }
 
-fn chart_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
+fn box_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
     let Chart {
         file_selects,
+        result,
         pos,
         var,
-        result,
-        state:
-            State {
-                show_boxplot,
-                show_lineplot,
-                ..
-            },
         ..
     } = app;
-    if !*show_boxplot && !*show_lineplot {
-        ui.centered_and_justified(|ui| {
-            ui.label("Please select one chart");
-        });
-    }
-
-    let y = ui.available_height();
-
     let result = &*result.lock().unwrap();
     let v = match result {
         Message::Done(v) => v,
@@ -158,99 +169,105 @@ fn chart_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
             return;
         }
     };
-    if *show_boxplot {
-        Plot::new("Box Plot")
-            .height(if !*show_lineplot { y } else { y / 3. })
-            .include_x(0.)
-            .legend(Legend::default())
-            .show(ui, |plot_ui| {
-                let mut i = 0.;
-                for (f, selected) in v.into_iter().zip(file_selects.into_iter())
-                {
-                    if !*selected {
-                        continue;
-                    }
-                    let (_, min, q1, mid, q3, max) =
-                        &f.raw.y.get(pos).unwrap().get(var).unwrap();
-                    plot_ui.box_plot(
-                        BoxPlot::new(vec![BoxElem::new(
-                            i,
-                            BoxSpread::new(
-                                min.clone(),
-                                q1.clone(),
-                                mid.clone(),
-                                q3.clone(),
-                                max.clone(),
-                            ),
-                        )])
-                        .name(&*f.path),
-                    );
-                    i += 0.5;
+    Plot::new("Box Plot")
+        .include_x(0.)
+        .legend(Legend::default())
+        .show(ui, |plot_ui| {
+            let mut i = 0.;
+            for (f, selected) in v.into_iter().zip(file_selects.into_iter()) {
+                if !*selected {
+                    continue;
                 }
-            });
-    }
-    if *show_lineplot {
-        Plot::new("Line Plot")
-            .legend(Legend::default()) // with .name() method
-            .height(if !*show_boxplot { y } else { y * 2. / 3. })
-            .include_x(0.) // show x axis label
-            .show(ui, |plot_ui| {
-                for (f, selected) in v.into_iter().zip(file_selects.into_iter())
-                {
-                    if !*selected {
-                        continue;
-                    }
-                    let (x, (y, min, _, _, _, max)) = (
-                        &f.raw.x,
-                        &f.raw.y.get(pos).unwrap().get(var).unwrap(),
-                    );
-                    plot_ui.line(
-                        Line::new(
-                            x.into_iter()
-                                .zip((&f.raw.l_contact).into_iter())
-                                .map(|(a, b)| {
-                                    let upper_bound = if b.gt(&0) {
-                                        max.clone()
-                                    } else {
-                                        min.clone()
-                                    };
-                                    [a.clone(), upper_bound]
-                                })
-                                .collect::<PlotPoints>(),
-                        )
-                        .fill(*min as f32)
-                        .color(egui::Color32::LIGHT_BLUE)
-                        .width(0.)
-                        .name(format!("{} L Contact", f.path)),
-                    );
-                    plot_ui.line(
-                        Line::new(
-                            x.into_iter()
-                                .zip((&f.raw.r_contact).into_iter())
-                                .map(|(a, b)| {
-                                    let upper_bound = if b.gt(&0) {
-                                        max.clone()
-                                    } else {
-                                        min.clone()
-                                    };
-                                    [a.clone(), upper_bound]
-                                })
-                                .collect::<PlotPoints>(),
-                        )
-                        .fill(*min as f32)
-                        .color(egui::Color32::LIGHT_GREEN)
-                        .width(0.)
-                        .name(format!("{} R Contact", f.path)),
-                    );
-                    let data: PlotPoints = x
-                        .into_iter()
-                        .zip(y.into_iter())
-                        .map(|(a, b)| [a.clone(), b.clone()])
-                        .collect();
-                    plot_ui.line(Line::new(data).name(&*f.path));
+                let (_, min, q1, mid, q3, max) =
+                    &f.raw.y.get(pos).unwrap().get(var).unwrap();
+                plot_ui.box_plot(
+                    BoxPlot::new(vec![BoxElem::new(
+                        i,
+                        BoxSpread::new(
+                            min.clone(),
+                            q1.clone(),
+                            mid.clone(),
+                            q3.clone(),
+                            max.clone(),
+                        ),
+                    )])
+                    .name(&*f.path),
+                );
+                i += 0.5;
+            }
+        });
+}
+fn line_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
+    let Chart {
+        file_selects,
+        pos,
+        var,
+        result,
+        ..
+    } = app;
+    let result = &*result.lock().unwrap();
+    let v = match result {
+        Message::Done(v) => v,
+        _ => {
+            return;
+        }
+    };
+    Plot::new("Line Plot")
+        .legend(Legend::default()) // with .name() method
+        .include_x(0.) // show x axis label
+        .show(ui, |plot_ui| {
+            for (f, selected) in v.into_iter().zip(file_selects.into_iter()) {
+                if !*selected {
+                    continue;
                 }
-            });
-    }
+                let (x, (y, min, _, _, _, max)) =
+                    (&f.raw.x, &f.raw.y.get(pos).unwrap().get(var).unwrap());
+                plot_ui.line(
+                    Line::new(
+                        x.into_iter()
+                            .zip((&f.raw.l_contact).into_iter())
+                            .map(|(a, b)| {
+                                let upper_bound = if b.gt(&0) {
+                                    max.clone()
+                                } else {
+                                    min.clone()
+                                };
+                                [a.clone(), upper_bound]
+                            })
+                            .collect::<PlotPoints>(),
+                    )
+                    .fill(*min as f32)
+                    .color(egui::Color32::LIGHT_BLUE)
+                    .width(0.)
+                    .name(format!("{} L Contact", f.path)),
+                );
+                plot_ui.line(
+                    Line::new(
+                        x.into_iter()
+                            .zip((&f.raw.r_contact).into_iter())
+                            .map(|(a, b)| {
+                                let upper_bound = if b.gt(&0) {
+                                    max.clone()
+                                } else {
+                                    min.clone()
+                                };
+                                [a.clone(), upper_bound]
+                            })
+                            .collect::<PlotPoints>(),
+                    )
+                    .fill(*min as f32)
+                    .color(egui::Color32::LIGHT_GREEN)
+                    .width(0.)
+                    .name(format!("{} R Contact", f.path)),
+                );
+                let data: PlotPoints = x
+                    .into_iter()
+                    .zip(y.into_iter())
+                    .map(|(a, b)| [a.clone(), b.clone()])
+                    .collect();
+                plot_ui.line(Line::new(data).name(&*f.path));
+            }
+        });
 }
 
 fn side_panel_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
