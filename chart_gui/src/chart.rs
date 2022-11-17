@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use eframe::egui::{
     self,
     plot::{BoxElem, BoxPlot, BoxSpread, Legend, Line, Plot, PlotPoints},
@@ -6,90 +8,66 @@ use eframe::egui::{
 
 use crate::{
     config::{Position, Variable},
-    data_process::{extract_info, RawData},
+    data_process::{DataInfo, Manager, Message},
 };
 
 pub struct State {
-    pub side_panel_open: bool,
-    unprocess_dialog: bool,
-}
-
-pub struct FileList {
-    path: String,
-    raw_data: RawData,
-    is_selected: bool,
+    pub show_side_panel: bool,
+    pub unprocess_dialog: bool,
+    show_process_win: bool,
+    show_boxplot: bool,
+    show_lineplot: bool,
 }
 
 pub struct Chart {
     pos: Position,
     var: Variable,
-    file_list: Vec<FileList>,
-    show_boxplot: bool,
-    show_lineplot: bool,
+    manager: Manager,
+    result: Arc<Mutex<Message>>,
+    file_selects: Vec<bool>,
     pub state: State,
 }
 
 impl Chart {
-    pub fn new() -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        let (sx, rx) = std::sync::mpsc::channel();
+        let manager = Manager::new(sx);
+        let result = Arc::new(Mutex::new(Message::Nothing));
+        spawn_repaint_thread(rx, result.clone(), cc.egui_ctx.clone());
         Self {
             pos: Position::L,
             var: Variable::AccelX,
-            file_list: Vec::new(),
-            show_boxplot: false,
-            show_lineplot: false,
+            file_selects: Vec::new(),
+            result,
+            manager,
             state: State {
-                side_panel_open: false,
+                show_side_panel: false,
                 unprocess_dialog: false,
+                show_process_win: false,
+                show_boxplot: false,
+                show_lineplot: false,
             },
         }
     }
 
     pub fn open_dir(&mut self) {
-        let Self {
-            file_list,
-            state:
-                State {
-                    side_panel_open,
-                    unprocess_dialog,
-                },
-            ..
-        } = self;
-        file_list.clear();
         if let Some(path) = rfd::FileDialog::new().pick_folder() {
-            for entries in std::fs::read_dir(path).unwrap() {
-                if let Ok(entry) = entries {
-                    let info = extract_info(entry.path());
-                    if info[0].len() != 12 || info[1].len() != 12 {
-                        *unprocess_dialog = true;
-                        *side_panel_open = false;
-                        return;
-                    }
-                    if info[0][5] != String::from("exported with version") {
-                        *unprocess_dialog = true;
-                        *side_panel_open = false;
-                        return;
-                    }
-                    file_list.push(FileList {
-                        path: entry.file_name().to_str().unwrap().to_string(),
-                        raw_data: RawData::new(entry.path()),
-                        is_selected: false,
-                    })
-                }
-            }
-            file_list[0].is_selected = true;
-            *side_panel_open = true;
+            self.state.show_process_win = true;
+            self.manager.start_get_data(path);
         }
+    }
+
+    pub fn close_dir(&mut self) {
+        self.manager.clear_message();
     }
 }
 
 impl super::View for Chart {
     fn show(&mut self, ctx: &eframe::egui::Context) {
-        if self.state.side_panel_open {
-            egui::SidePanel::right("right files panel")
-                // .resizable(true)
-                .show(ctx, |ui| {
-                    side_panel_ui(self, ui);
-                });
+        if self.state.show_side_panel {
+            egui::SidePanel::right("right panel").show(ctx, |ui| {
+                side_panel_ui(self, ui);
+            });
         }
         egui::CentralPanel::default().show(ctx, |ui| {
             chart_ui(self, ui);
@@ -111,16 +89,58 @@ impl super::View for Chart {
                     })
                 });
         }
+
+        if self.state.show_process_win {
+            egui::Window::new("process win")
+                .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
+                .title_bar(false)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.heading("Preprocessing");
+                    });
+                    match &*self.result.lock().unwrap() {
+                        Message::Running(progress, msg) => {
+                            ui.label(format!("Processing: {}", msg));
+                            ui.add(egui::ProgressBar::new(*progress));
+                            ui.vertical_centered(|ui| {
+                                if ui.button("Cancel").clicked() {
+                                    self.manager.stop();
+                                }
+                            });
+                        }
+                        Message::Abort(msg) => {
+                            ui.label(format!("Abort: {}", msg));
+                        }
+                        Message::Done(v) => {
+                            if v.len() > 0 {
+                                self.file_selects = vec![false; v.len()];
+                                self.file_selects[0] = true;
+                            }
+                            self.state.show_boxplot = true;
+                            self.state.show_lineplot = true;
+                            self.state.show_side_panel = true;
+                            self.state.show_process_win = false;
+                        }
+                        Message::Nothing => {}
+                    }
+                });
+        }
     }
 }
 
 fn chart_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
     let Chart {
-        show_boxplot,
-        show_lineplot,
-        file_list,
+        file_selects,
         pos,
         var,
+        result,
+        state:
+            State {
+                show_boxplot,
+                show_lineplot,
+                ..
+            },
         ..
     } = app;
     if !*show_boxplot && !*show_lineplot {
@@ -128,12 +148,16 @@ fn chart_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
             ui.label("Please select one chart");
         });
     }
-    if file_list.is_empty() {
-        return;
-    }
 
     let y = ui.available_height();
 
+    let result = &*result.lock().unwrap();
+    let v = match result {
+        Message::Done(v) => v,
+        _ => {
+            return;
+        }
+    };
     if *show_boxplot {
         Plot::new("Box Plot")
             .height(if !*show_lineplot { y } else { y / 3. })
@@ -141,25 +165,27 @@ fn chart_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
             .legend(Legend::default())
             .show(ui, |plot_ui| {
                 let mut i = 0.;
-                for f in file_list.into_iter() {
-                    if f.is_selected {
-                        let (_, min, q1, mid, q3, max) =
-                            &f.raw_data.y.get(pos).unwrap().get(var).unwrap();
-                        plot_ui.box_plot(
-                            BoxPlot::new(vec![BoxElem::new(
-                                i,
-                                BoxSpread::new(
-                                    min.clone(),
-                                    q1.clone(),
-                                    mid.clone(),
-                                    q3.clone(),
-                                    max.clone(),
-                                ),
-                            )])
-                            .name(&*f.path),
-                        );
-                        i += 0.5;
+                for (f, selected) in v.into_iter().zip(file_selects.into_iter())
+                {
+                    if !*selected {
+                        continue;
                     }
+                    let (_, min, q1, mid, q3, max) =
+                        &f.raw.y.get(pos).unwrap().get(var).unwrap();
+                    plot_ui.box_plot(
+                        BoxPlot::new(vec![BoxElem::new(
+                            i,
+                            BoxSpread::new(
+                                min.clone(),
+                                q1.clone(),
+                                mid.clone(),
+                                q3.clone(),
+                                max.clone(),
+                            ),
+                        )])
+                        .name(&*f.path),
+                    );
+                    i += 0.5;
                 }
             });
     }
@@ -169,57 +195,59 @@ fn chart_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
             .height(if !*show_boxplot { y } else { y * 2. / 3. })
             .include_x(0.) // show x axis label
             .show(ui, |plot_ui| {
-                for f in file_list {
-                    if f.is_selected {
-                        let (x, (y, min, _, _, _, max)) = (
-                            &f.raw_data.x,
-                            &f.raw_data.y.get(pos).unwrap().get(var).unwrap(),
-                        );
-                        plot_ui.line(
-                            Line::new(
-                                x.into_iter()
-                                    .zip((&f.raw_data.l_contact).into_iter())
-                                    .map(|(a, b)| {
-                                        let upper_bound = if b.gt(&0) {
-                                            max.clone()
-                                        } else {
-                                            min.clone()
-                                        };
-                                        [a.clone(), upper_bound]
-                                    })
-                                    .collect::<PlotPoints>(),
-                            )
-                            .fill(*min as f32)
-                            .color(egui::Color32::LIGHT_BLUE)
-                            .width(0.)
-                            .name(format!("{} L Contact", f.path)),
-                        );
-                        plot_ui.line(
-                            Line::new(
-                                x.into_iter()
-                                    .zip((&f.raw_data.r_contact).into_iter())
-                                    .map(|(a, b)| {
-                                        let upper_bound = if b.gt(&0) {
-                                            max.clone()
-                                        } else {
-                                            min.clone()
-                                        };
-                                        [a.clone(), upper_bound]
-                                    })
-                                    .collect::<PlotPoints>(),
-                            )
-                            .fill(*min as f32)
-                            .color(egui::Color32::LIGHT_GREEN)
-                            .width(0.)
-                            .name(format!("{} R Contact", f.path)),
-                        );
-                        let data: PlotPoints = x
-                            .into_iter()
-                            .zip(y.into_iter())
-                            .map(|(a, b)| [a.clone(), b.clone()])
-                            .collect();
-                        plot_ui.line(Line::new(data).name(&*f.path));
+                for (f, selected) in v.into_iter().zip(file_selects.into_iter())
+                {
+                    if !*selected {
+                        continue;
                     }
+                    let (x, (y, min, _, _, _, max)) = (
+                        &f.raw.x,
+                        &f.raw.y.get(pos).unwrap().get(var).unwrap(),
+                    );
+                    plot_ui.line(
+                        Line::new(
+                            x.into_iter()
+                                .zip((&f.raw.l_contact).into_iter())
+                                .map(|(a, b)| {
+                                    let upper_bound = if b.gt(&0) {
+                                        max.clone()
+                                    } else {
+                                        min.clone()
+                                    };
+                                    [a.clone(), upper_bound]
+                                })
+                                .collect::<PlotPoints>(),
+                        )
+                        .fill(*min as f32)
+                        .color(egui::Color32::LIGHT_BLUE)
+                        .width(0.)
+                        .name(format!("{} L Contact", f.path)),
+                    );
+                    plot_ui.line(
+                        Line::new(
+                            x.into_iter()
+                                .zip((&f.raw.r_contact).into_iter())
+                                .map(|(a, b)| {
+                                    let upper_bound = if b.gt(&0) {
+                                        max.clone()
+                                    } else {
+                                        min.clone()
+                                    };
+                                    [a.clone(), upper_bound]
+                                })
+                                .collect::<PlotPoints>(),
+                        )
+                        .fill(*min as f32)
+                        .color(egui::Color32::LIGHT_GREEN)
+                        .width(0.)
+                        .name(format!("{} R Contact", f.path)),
+                    );
+                    let data: PlotPoints = x
+                        .into_iter()
+                        .zip(y.into_iter())
+                        .map(|(a, b)| [a.clone(), b.clone()])
+                        .collect();
+                    plot_ui.line(Line::new(data).name(&*f.path));
                 }
             });
     }
@@ -227,11 +255,16 @@ fn chart_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
 
 fn side_panel_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
     let Chart {
-        show_boxplot,
-        show_lineplot,
-        file_list,
+        result,
+        file_selects,
         pos,
         var,
+        state:
+            State {
+                show_boxplot,
+                show_lineplot,
+                ..
+            },
         ..
     } = app;
     egui::Grid::new("options")
@@ -283,15 +316,34 @@ fn side_panel_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
                 egui::Grid::new("files").striped(true).num_columns(1).show(
                     ui,
                     |ui| {
-                        for row in file_list {
-                            ui.checkbox(
-                                &mut row.is_selected,
-                                row.path.as_str(),
-                            );
+                        let result = &*result.lock().unwrap();
+                        let v = match result {
+                            Message::Done(v) => v,
+                            _ => {
+                                return;
+                            }
+                        };
+                        for (DataInfo { path, .. }, selected) in
+                            v.into_iter().zip(file_selects.into_iter())
+                        {
+                            ui.checkbox(selected, path.as_str());
                             ui.end_row();
                         }
                     },
                 );
             });
+    });
+}
+
+fn spawn_repaint_thread<T: std::marker::Send + 'static>(
+    rx: std::sync::mpsc::Receiver<T>,
+    message: Arc<Mutex<T>>,
+    ctx: egui::Context,
+) {
+    std::thread::spawn(move || loop {
+        if let Ok(recv_message) = rx.recv() {
+            *message.lock().unwrap() = recv_message;
+            ctx.request_repaint();
+        }
     });
 }

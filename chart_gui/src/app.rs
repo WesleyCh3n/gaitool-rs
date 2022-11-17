@@ -7,9 +7,9 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         App {
-            chart: Chart::new(),
+            chart: Chart::new(cc),
         }
     }
 }
@@ -25,6 +25,11 @@ impl eframe::App for App {
                         ui.close_menu();
                     }
                     ui.separator();
+                    if ui.button("Close Folder").clicked() {
+                        self.chart.close_dir();
+                        ui.close_menu();
+                    }
+                    ui.separator();
                     if ui.button("Exit").clicked() {
                         frame.close();
                     }
@@ -33,7 +38,7 @@ impl eframe::App for App {
                     egui::Layout::right_to_left(egui::Align::Center),
                     |ui| {
                         ui.toggle_value(
-                            &mut self.chart.state.side_panel_open,
+                            &mut self.chart.state.show_side_panel,
                             "Tools",
                         );
                         ui.separator();
