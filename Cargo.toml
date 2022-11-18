@@ -18,7 +18,8 @@ csv = "1.1"
 [workspace]
 members = [
   "split_gui",
-  "chart_gui"
+  "chart_gui",
+  "data_process"
 ]
 
 [profile.release]

@@ -15,7 +15,7 @@ pub struct RawData {
     pub x: Vec<f64>,
     pub y: HashMap<
         Position,
-        HashMap<Variable, (Vec<f64>, f64, f64, f64, f64, f64)>,
+        HashMap<Variable, (Vec<f64>, (f64, f64, f64, f64, f64))>,
     >,
     pub l_contact: Vec<i64>,
     pub r_contact: Vec<i64>,
@@ -139,58 +139,19 @@ impl RawData {
             .f64()?
             .into_no_null_iter()
             .collect::<Vec<f64>>();
-        let df_quantile = df
-            .clone()
-            .lazy()
-            .select([
-                all().min().suffix("_min"),
-                all()
-                    .quantile(0.25, QuantileInterpolOptions::Nearest)
-                    .suffix("_Q1"),
-                all().median().suffix("_median"),
-                all()
-                    .quantile(0.75, QuantileInterpolOptions::Nearest)
-                    .suffix("_Q3"),
-                all().max().suffix("_max"),
-            ])
-            .collect()?;
 
         let mut y = HashMap::new();
         for p in Position::iterator() {
             let mut variables = HashMap::new();
             for v in Variable::iterator() {
                 let col_name = Variable::to_name_string(v, p);
-                variables.entry(v.clone()).or_insert((
-                    df.column(&col_name)?
-                        .f64()?
-                        .into_no_null_iter()
-                        .collect::<Vec<f64>>(),
-                    df_quantile
-                        .column(&format!("{}_min", col_name))?
-                        .f64()?
-                        .get(0)
-                        .unwrap(),
-                    df_quantile
-                        .column(&format!("{}_Q1", col_name))?
-                        .f64()?
-                        .get(0)
-                        .unwrap(),
-                    df_quantile
-                        .column(&format!("{}_median", col_name))?
-                        .f64()?
-                        .get(0)
-                        .unwrap(),
-                    df_quantile
-                        .column(&format!("{}_Q3", col_name))?
-                        .f64()?
-                        .get(0)
-                        .unwrap(),
-                    df_quantile
-                        .column(&format!("{}_max", col_name))?
-                        .f64()?
-                        .get(0)
-                        .unwrap(),
-                ));
+                let data = df
+                    .column(&col_name)?
+                    .f64()?
+                    .into_no_null_iter()
+                    .collect::<Vec<f64>>();
+                let quantile = get_quantile(&data, &x, vec![vec![7.75, 8.87]])?;
+                variables.entry(v.clone()).or_insert((data, quantile));
             }
             y.entry(p.clone()).or_insert(variables);
         }
@@ -207,6 +168,7 @@ impl RawData {
             .collect::<Vec<i64>>();
 
         // calculate gait
+        // get lt/rt/db
         let df = df
             .lazy()
             .select(vec![
@@ -276,6 +238,12 @@ impl RawData {
             .drop_columns(["first", "second"])
             .drop_nulls(None)
             .collect()?;
+
+        println!(
+            "DB s: {}",
+            df.clone().lazy().select([col("DB_S")]).collect()?
+        );
+
         let a = df
             .clone()
             .lazy()
@@ -299,8 +267,8 @@ impl RawData {
                 col("gap").max().suffix("_max"),
             ])
             .collect()?;
-
-        println!("{}", a);
+        let arr = a.to_ndarray::<Float64Type>()?;
+        let v = arr.row(0).to_vec();
 
         Ok(Self {
             x,
@@ -309,4 +277,59 @@ impl RawData {
             r_contact,
         })
     }
+}
+
+pub fn get_quantile(
+    data: &Vec<f64>,
+    time: &Vec<f64>,
+    ranges: Vec<Vec<f32>>,
+) -> Result<(f64, f64, f64, f64, f64)> {
+    // in gait min / max mean
+    // also in valid range
+    let mut df = df!(
+        "data" => data,
+        "time" => time,
+    )?;
+
+    // get min in every step
+    let mut min_vec = Vec::new();
+    let mut max_vec = Vec::new();
+    for range in ranges {
+        let min_df = df
+            .clone()
+            .lazy()
+            .filter(col("time").gt_eq(range[0]).and(col("time").lt(range[1])))
+            .select([
+                col("data").min().suffix("_min"),
+                col("data").max().suffix("_max"),
+            ])
+            .collect()?;
+        let arr = min_df.to_ndarray::<Float64Type>()?.row(0).to_vec();
+        min_vec.push(arr[0]);
+        max_vec.push(arr[1]);
+    }
+    let mut df = df!(
+        "min" => min_vec,
+        "max" => max_vec,
+    )?;
+
+    df = df
+        .lazy()
+        .select([
+            all().exclude(["time"]).min().suffix("_min"),
+            all()
+                .exclude(["time"])
+                .quantile(0.25, QuantileInterpolOptions::Nearest)
+                .suffix("_Q1"),
+            all().exclude(["time"]).median().suffix("_median"),
+            all()
+                .exclude(["time"])
+                .quantile(0.75, QuantileInterpolOptions::Nearest)
+                .suffix("_Q3"),
+            all().exclude(["time"]).max().suffix("_max"),
+        ])
+        .collect()?;
+
+    let v = df.to_ndarray::<Float64Type>()?.row(0).to_vec();
+    Ok((v[0], v[1], v[2], v[3], v[4]))
 }

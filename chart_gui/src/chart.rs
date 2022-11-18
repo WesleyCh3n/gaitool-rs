@@ -76,23 +76,22 @@ impl super::View for Chart {
                 });
             }
             let egui::Vec2 { x, y } = ui.available_size();
-            let size = egui::vec2(x - 15., y / 2. - 30.);
+            let size = egui::vec2(x, y / 2.);
             if self.state.show_boxplot {
-                egui::Window::new("Box Plot")
-                    .resizable(true)
-                    .default_pos(egui::pos2(0., 0.))
+                egui::Resize::default()
+                    .id_source("boxplot")
                     .default_size(size)
-                    .collapsible(false)
-                    .show(ctx, |ui| {
+                    .max_size([x, y])
+                    .show(ui, |ui| {
                         box_plot(self, ui);
                     });
             }
             if self.state.show_lineplot {
-                egui::Window::new("Line Plot")
-                    .resizable(true)
+                egui::Resize::default()
+                    .id_source("lineplot")
                     .default_size(size)
-                    .collapsible(false)
-                    .show(ctx, |ui| {
+                    .max_size([x, y])
+                    .show(ui, |ui| {
                         line_plot(self, ui);
                     });
             }
@@ -178,7 +177,7 @@ fn box_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
                 if !*selected {
                     continue;
                 }
-                let (_, min, q1, mid, q3, max) =
+                let (_, (min, q1, mid, q3, max)) =
                     &f.raw.y.get(pos).unwrap().get(var).unwrap();
                 plot_ui.box_plot(
                     BoxPlot::new(vec![BoxElem::new(
@@ -220,7 +219,7 @@ fn line_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
                 if !*selected {
                     continue;
                 }
-                let (x, (y, min, _, _, _, max)) =
+                let (x, (y, (min, _, _, _, max))) =
                     (&f.raw.x, &f.raw.y.get(pos).unwrap().get(var).unwrap());
                 plot_ui.line(
                     Line::new(
@@ -239,7 +238,7 @@ fn line_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
                     .fill(*min as f32)
                     .color(egui::Color32::LIGHT_BLUE)
                     .width(0.)
-                    .name(format!("{} L Contact", f.path)),
+                    .name("L Contact"),
                 );
                 plot_ui.line(
                     Line::new(
@@ -258,7 +257,7 @@ fn line_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
                     .fill(*min as f32)
                     .color(egui::Color32::LIGHT_GREEN)
                     .width(0.)
-                    .name(format!("{} R Contact", f.path)),
+                    .name("R Contact"),
                 );
                 let data: PlotPoints = x
                     .into_iter()
@@ -319,6 +318,10 @@ fn side_panel_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
             ui.vertical(|ui| {
                 ui.checkbox(show_lineplot, "show line plot");
             });
+            ui.end_row();
+            if ui.button("reset").clicked() {
+                ui.ctx().memory().reset_areas();
+            }
         });
     ui.add_space(4.0);
     ui.separator();
