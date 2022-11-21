@@ -126,7 +126,9 @@ impl super::View for Chart {
                     match &*self.result.lock().unwrap() {
                         Message::Running(progress, msg) => {
                             ui.label(format!("Processing: {}", msg));
-                            ui.add(egui::ProgressBar::new(*progress));
+                            ui.add(
+                                egui::ProgressBar::new(*progress).animate(true),
+                            );
                             ui.vertical_centered(|ui| {
                                 if ui.button("Cancel").clicked() {
                                     self.manager.stop();
@@ -170,29 +172,45 @@ fn box_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
     };
     Plot::new("Box Plot")
         .include_x(0.)
-        .legend(Legend::default())
+        .legend(
+            Legend::default()
+                .position(egui::plot::Corner::RightBottom)
+                .text_style(egui::TextStyle::Small),
+        )
         .show(ui, |plot_ui| {
             let mut i = 0.;
             for (f, selected) in v.into_iter().zip(file_selects.into_iter()) {
                 if !*selected {
                     continue;
                 }
-                let (_, (min, q1, mid, q3, max)) =
+                let (_, min_q, max_q) =
                     &f.raw.y.get(pos).unwrap().get(var).unwrap();
+                let min_t = min_q.to_tuple();
+                let max_t = max_q.to_tuple();
                 plot_ui.box_plot(
-                    BoxPlot::new(vec![BoxElem::new(
-                        i,
-                        BoxSpread::new(
-                            min.clone(),
-                            q1.clone(),
-                            mid.clone(),
-                            q3.clone(),
-                            max.clone(),
-                        ),
-                    )])
+                    BoxPlot::new(vec![
+                        BoxElem::new(
+                            i + 0.,
+                            BoxSpread::new(
+                                min_t.0, min_t.1, min_t.2, min_t.3, min_t.4,
+                            ),
+                        )
+                        .box_width(0.1)
+                        .whisker_width(0.1)
+                        .name("min"),
+                        BoxElem::new(
+                            i + 1.,
+                            BoxSpread::new(
+                                max_t.0, max_t.1, max_t.2, max_t.3, max_t.4,
+                            ),
+                        )
+                        .box_width(0.1)
+                        .whisker_width(0.1)
+                        .name("max"),
+                    ])
                     .name(&*f.path),
                 );
-                i += 0.5;
+                i += 0.1;
             }
         });
 }
@@ -212,14 +230,19 @@ fn line_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
         }
     };
     Plot::new("Line Plot")
-        .legend(Legend::default()) // with .name() method
-        .include_x(0.) // show x axis label
+        .legend(
+            Legend::default()
+                .position(egui::plot::Corner::RightBottom)
+                .text_style(egui::TextStyle::Small),
+        )
+        .include_x(0.)
+        .include_y(0.)
         .show(ui, |plot_ui| {
             for (f, selected) in v.into_iter().zip(file_selects.into_iter()) {
                 if !*selected {
                     continue;
                 }
-                let (x, (y, (min, _, _, _, max))) =
+                let (x, (y, min_q, max_q)) =
                     (&f.raw.x, &f.raw.y.get(pos).unwrap().get(var).unwrap());
                 plot_ui.line(
                     Line::new(
@@ -227,15 +250,15 @@ fn line_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
                             .zip((&f.raw.l_contact).into_iter())
                             .map(|(a, b)| {
                                 let upper_bound = if b.gt(&0) {
-                                    max.clone()
+                                    max_q.max()
                                 } else {
-                                    min.clone()
+                                    min_q.min()
                                 };
                                 [a.clone(), upper_bound]
                             })
                             .collect::<PlotPoints>(),
                     )
-                    .fill(*min as f32)
+                    .fill(min_q.min() as f32)
                     .color(egui::Color32::LIGHT_BLUE)
                     .width(0.)
                     .name("L Contact"),
@@ -246,15 +269,15 @@ fn line_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
                             .zip((&f.raw.r_contact).into_iter())
                             .map(|(a, b)| {
                                 let upper_bound = if b.gt(&0) {
-                                    max.clone()
+                                    max_q.max()
                                 } else {
-                                    min.clone()
+                                    min_q.min()
                                 };
                                 [a.clone(), upper_bound]
                             })
                             .collect::<PlotPoints>(),
                     )
-                    .fill(*min as f32)
+                    .fill(min_q.min() as f32)
                     .color(egui::Color32::LIGHT_GREEN)
                     .width(0.)
                     .name("R Contact"),

@@ -10,15 +10,55 @@ use std::{
     thread,
 };
 
+#[derive(Default, Debug)]
+pub struct Quantile<T: Copy> {
+    min: T,
+    q1: T,
+    mid: T,
+    q3: T,
+    max: T,
+}
+
+impl<T: Copy> Quantile<T> {
+    pub fn new(nums: (T, T, T, T, T)) -> Self {
+        Self {
+            min: nums.0,
+            q1: nums.1,
+            mid: nums.2,
+            q3: nums.3,
+            max: nums.4,
+        }
+    }
+    pub fn to_tuple(&self) -> (T, T, T, T, T) {
+        let Self {
+            min,
+            q1,
+            mid,
+            q3,
+            max,
+        } = self;
+        (*min, *q1, *mid, *q3, *max)
+    }
+    pub fn max(&self) -> T {
+        self.max
+    }
+    pub fn min(&self) -> T {
+        self.min
+    }
+}
+
 #[derive(Default)]
 pub struct RawData {
     pub x: Vec<f64>,
     pub y: HashMap<
         Position,
-        HashMap<Variable, (Vec<f64>, (f64, f64, f64, f64, f64))>,
+        HashMap<Variable, (Vec<f64>, Quantile<f64>, Quantile<f64>)>,
     >,
     pub l_contact: Vec<i64>,
     pub r_contact: Vec<i64>,
+    pub db: Quantile<f64>,
+    pub lt: Quantile<f64>,
+    pub rt: Quantile<f64>,
 }
 
 pub struct DataInfo {
@@ -93,9 +133,21 @@ impl Manager {
                         .unwrap();
                     break;
                 }
+                let selection = info[1][11]
+                    .split(" ")
+                    .collect::<Vec<&str>>()
+                    .iter()
+                    .map(|s| {
+                        s.split("-")
+                            .collect::<Vec<&str>>()
+                            .iter()
+                            .map(|n| n.parse::<f64>().unwrap())
+                            .collect::<Vec<f64>>()
+                    })
+                    .collect::<Vec<Vec<f64>>>();
                 file_lists.push(DataInfo {
                     path: file.file_name().to_str().unwrap().to_string(),
-                    raw: RawData::parse_file(file.path()).unwrap(),
+                    raw: RawData::parse_file(file.path(), selection).unwrap(),
                 })
             }
             external_sender.send(Message::Done(file_lists)).unwrap();
@@ -129,47 +181,16 @@ impl Manager {
 }
 
 impl RawData {
-    pub fn parse_file<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
-        let df = CsvReader::from_path(path.as_ref())?
+    pub fn parse_file<P: AsRef<std::path::Path>>(
+        path: P,
+        selections: Vec<Vec<f64>>,
+    ) -> Result<Self> {
+        let raw_df = CsvReader::from_path(path.as_ref())?
             .with_skip_rows(3)
             .finish()?;
 
-        let x = df
-            .column("time")?
-            .f64()?
-            .into_no_null_iter()
-            .collect::<Vec<f64>>();
-
-        let mut y = HashMap::new();
-        for p in Position::iterator() {
-            let mut variables = HashMap::new();
-            for v in Variable::iterator() {
-                let col_name = Variable::to_name_string(v, p);
-                let data = df
-                    .column(&col_name)?
-                    .f64()?
-                    .into_no_null_iter()
-                    .collect::<Vec<f64>>();
-                let quantile = get_quantile(&data, &x, vec![vec![7.75, 8.87]])?;
-                variables.entry(v.clone()).or_insert((data, quantile));
-            }
-            y.entry(p.clone()).or_insert(variables);
-        }
-
-        let l_contact = df
-            .column("Noraxon MyoMotion-Segments-Foot LT-Contact")?
-            .i64()?
-            .into_no_null_iter()
-            .collect::<Vec<i64>>();
-        let r_contact = df
-            .column("Noraxon MyoMotion-Segments-Foot RT-Contact")?
-            .i64()?
-            .into_no_null_iter()
-            .collect::<Vec<i64>>();
-
-        // calculate gait
-        // get lt/rt/db
-        let df = df
+        let contact_df = raw_df
+            .clone()
             .lazy()
             .select(vec![
                 col("time"),
@@ -190,11 +211,15 @@ impl RawData {
             ])
             .with_column(col("LT").and(col("RT")).alias("DB"))
             .with_column(not(col("DB")).alias("SG"))
+            .with_columns(vec![
+                col("LT").and(col("SG")).alias("LS"),
+                col("RT").and(col("SG")).alias("RS"),
+            ])
             .collect()?;
 
-        let df = df
+        let contact_df = contact_df
             .lazy()
-            // Gait Start
+            // DB start/end
             .with_column(col("DB").shift(1).alias("first"))
             .with_column(col("DB").alias("second"))
             .with_columns(vec![
@@ -208,7 +233,7 @@ impl RawData {
                     .alias("DB_E"),
             ])
             .drop_columns(["first", "second"])
-            // LT Start/end
+            // LT start/end
             .with_column(col("LT").shift(1).alias("first"))
             .with_column(col("LT").alias("second"))
             .with_columns(vec![
@@ -222,7 +247,7 @@ impl RawData {
                     .alias("LT_E"),
             ])
             .drop_columns(["first", "second"])
-            // RT Start/end
+            // RT start/end
             .with_column(col("RT").shift(1).alias("first"))
             .with_column(col("RT").alias("second"))
             .with_columns(vec![
@@ -239,54 +264,143 @@ impl RawData {
             .drop_nulls(None)
             .collect()?;
 
-        println!(
-            "DB s: {}",
-            df.clone().lazy().select([col("DB_S")]).collect()?
-        );
-
-        let a = df
+        let gait_ranges = contact_df
             .clone()
             .lazy()
-            .filter(col("DB_S").eq(1).or(col("DB_E").eq(1)))
-            .select(vec![col("time"), col("DB_S"), col("DB_E")])
-            .with_column(col("time").shift(1).alias("drop_first_row"))
-            .drop_nulls(None)
-            .drop_columns(["drop_first_row"])
-            .with_column(col("time").shift(1).alias("time_shift"))
-            .with_column((col("time") - col("time_shift")).alias("gap"))
-            .select(vec![col("gap")])
-            .select([
-                col("gap").min().suffix("_min"),
-                col("gap")
-                    .quantile(0.25, QuantileInterpolOptions::Nearest)
-                    .suffix("_Q1"),
-                col("gap").median().suffix("_median"),
-                col("gap")
-                    .quantile(0.75, QuantileInterpolOptions::Nearest)
-                    .suffix("_Q3"),
-                col("gap").max().suffix("_max"),
-            ])
-            .collect()?;
-        let arr = a.to_ndarray::<Float64Type>()?;
-        let v = arr.row(0).to_vec();
+            .select([col("time"), col("DB_S")])
+            .filter(col("DB_S").eq(1))
+            .collect()?
+            // get db start time to vec
+            .column("time")?
+            .f64()?
+            .into_no_null_iter()
+            // get every 2 db
+            .step_by(2)
+            .collect::<Vec<f64>>()
+            // create start end
+            .windows(2)
+            .map(|s| s.to_vec())
+            // valid range from selction
+            .filter(|r| {
+                // r in one of the selection
+                for sel in selections.iter() {
+                    if sel[0] <= r[0] && r[1] <= sel[1] {
+                        return true;
+                    }
+                }
+                false
+            })
+            .collect::<Vec<Vec<f64>>>();
+        let db_gaps = get_support_range(contact_df.clone(), "DB", &selections)?
+            .into_iter()
+            .map(|v| v[1] - v[0])
+            .collect::<Vec<f64>>();
+        let lt_gaps = get_support_range(contact_df.clone(), "LT", &selections)?
+            .into_iter()
+            .map(|v| v[1] - v[0])
+            .collect::<Vec<f64>>();
+        let rt_gaps = get_support_range(contact_df.clone(), "RT", &selections)?
+            .into_iter()
+            .map(|v| v[1] - v[0])
+            .collect::<Vec<f64>>();
+
+        let x = raw_df
+            .column("time")?
+            .f64()?
+            .into_no_null_iter()
+            .collect::<Vec<f64>>();
+
+        let mut y = HashMap::new();
+        for p in Position::iterator() {
+            let mut variables = HashMap::new();
+            for v in Variable::iterator() {
+                let col_name = Variable::to_name_string(v, p);
+                let data = raw_df
+                    .column(&col_name)?
+                    .f64()?
+                    .into_no_null_iter()
+                    .collect::<Vec<f64>>();
+                let quantiles = get_min_max_quantile(&data, &x, &gait_ranges)?;
+
+                variables.entry(v.clone()).or_insert((
+                    data,
+                    quantiles.0,
+                    quantiles.1,
+                ));
+            }
+            y.entry(p.clone()).or_insert(variables);
+        }
 
         Ok(Self {
             x,
             y,
-            l_contact,
-            r_contact,
+            l_contact: raw_df
+                .column("Noraxon MyoMotion-Segments-Foot LT-Contact")?
+                .i64()?
+                .into_no_null_iter()
+                .collect::<Vec<i64>>(),
+            r_contact: raw_df
+                .column("Noraxon MyoMotion-Segments-Foot RT-Contact")?
+                .i64()?
+                .into_no_null_iter()
+                .collect::<Vec<i64>>(),
+            db: get_quantile(&db_gaps)?,
+            lt: get_quantile(&lt_gaps)?,
+            rt: get_quantile(&rt_gaps)?,
         })
     }
 }
 
-pub fn get_quantile(
+fn get_support_range(
+    contact_df: DataFrame, // support dataframe which has DB/LT/RT start/end
+    pos: &str,
+    selections: &Vec<Vec<f64>>,
+) -> Result<Vec<Vec<f64>>> {
+    let ranges = contact_df
+        .lazy()
+        .select([
+            col("time"),
+            col(format!("{pos}_S").as_str()),
+            col(format!("{pos}_E").as_str()),
+        ])
+        .filter(
+            col(format!("{pos}_S").as_str())
+                .eq(1)
+                .or(col(format!("{pos}_E").as_str()).eq(1)),
+        )
+        .collect()?
+        .column("time")?
+        .f64()?
+        .into_no_null_iter()
+        .collect::<Vec<f64>>();
+    assert_eq!(ranges.len() % 2, 0);
+
+    let ranges = (&ranges[1..ranges.len() - 1])
+        .to_vec()
+        .windows(2)
+        .map(|s| s.to_vec())
+        .step_by(2)
+        .filter(|r| {
+            // r in one of the selection
+            for sel in selections.iter() {
+                if sel[0] <= r[0] && r[1] <= sel[1] {
+                    return true;
+                }
+            }
+            false
+        })
+        .collect::<Vec<Vec<f64>>>();
+    Ok(ranges)
+}
+
+pub fn get_min_max_quantile(
     data: &Vec<f64>,
     time: &Vec<f64>,
-    ranges: Vec<Vec<f32>>,
-) -> Result<(f64, f64, f64, f64, f64)> {
+    ranges: &Vec<Vec<f64>>,
+) -> Result<(Quantile<f64>, Quantile<f64>)> {
     // in gait min / max mean
     // also in valid range
-    let mut df = df!(
+    let df = df!(
         "data" => data,
         "time" => time,
     )?;
@@ -308,28 +422,28 @@ pub fn get_quantile(
         min_vec.push(arr[0]);
         max_vec.push(arr[1]);
     }
-    let mut df = df!(
-        "min" => min_vec,
-        "max" => max_vec,
-    )?;
+    let min_q = get_quantile(&min_vec)?;
+    let max_q = get_quantile(&max_vec)?;
+    Ok((min_q, max_q))
+}
+
+fn get_quantile(data: &Vec<f64>) -> Result<Quantile<f64>> {
+    let mut df = df!("data" => data)?;
 
     df = df
         .lazy()
         .select([
-            all().exclude(["time"]).min().suffix("_min"),
+            all().min().suffix("_min"),
             all()
-                .exclude(["time"])
                 .quantile(0.25, QuantileInterpolOptions::Nearest)
                 .suffix("_Q1"),
-            all().exclude(["time"]).median().suffix("_median"),
+            all().median().suffix("_median"),
             all()
-                .exclude(["time"])
                 .quantile(0.75, QuantileInterpolOptions::Nearest)
                 .suffix("_Q3"),
-            all().exclude(["time"]).max().suffix("_max"),
+            all().max().suffix("_max"),
         ])
         .collect()?;
-
     let v = df.to_ndarray::<Float64Type>()?.row(0).to_vec();
-    Ok((v[0], v[1], v[2], v[3], v[4]))
+    Ok(Quantile::new((v[0], v[1], v[2], v[3], v[4])))
 }
