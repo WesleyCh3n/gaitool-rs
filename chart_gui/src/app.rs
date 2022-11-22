@@ -19,14 +19,17 @@ impl eframe::App for App {
         egui::TopBottomPanel::top("top panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
-                    if ui.button("Open File").clicked() {}
+                    if ui.button("Open File").clicked() {
+                        self.chart.open_file();
+                        ui.close_menu();
+                    }
                     if ui.button("Open Folder").clicked() {
                         self.chart.open_dir();
                         ui.close_menu();
                     }
                     ui.separator();
-                    if ui.button("Close Folder").clicked() {
-                        self.chart.close_dir();
+                    if ui.button("Close All").clicked() {
+                        self.chart.close_all();
                         ui.close_menu();
                     }
                     ui.separator();

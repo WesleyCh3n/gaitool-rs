@@ -54,8 +54,10 @@ pub struct RawData {
         Position,
         HashMap<Variable, (Vec<f64>, Quantile<f64>, Quantile<f64>)>,
     >,
+    pub selections: Vec<Vec<f64>>,
     pub l_contact: Vec<i64>,
     pub r_contact: Vec<i64>,
+    pub gait: (Vec<f64>, Quantile<f64>),
     pub db: Quantile<f64>,
     pub lt: Quantile<f64>,
     pub rt: Quantile<f64>,
@@ -94,7 +96,61 @@ impl Manager {
         self.external_sender.send(Message::Nothing).unwrap();
     }
 
-    pub fn start_get_data<P: AsRef<Path> + std::marker::Send + 'static>(
+    pub fn start_get_data_from_file<P: AsRef<Path> + 'static>(&self, file: P) {
+        let external_sender = self.external_sender.clone();
+        let must_stop = self.must_stop.clone();
+        let file = file.as_ref().to_owned();
+        must_stop.store(false, Ordering::Relaxed);
+        thread::spawn(move || {
+            let mut file_lists = Vec::new();
+            if must_stop.load(Ordering::Relaxed) {
+                external_sender
+                    .send(Message::Abort("Stopped!".into()))
+                    .unwrap();
+                return;
+            }
+            external_sender
+                .send(Message::Running(
+                    5.,
+                    format!("{}", file.file_name().unwrap().to_str().unwrap()),
+                ))
+                .unwrap();
+            let info = Self::extract_info(&file);
+            if info[0].len() != 12 || info[1].len() != 12 {
+                external_sender
+                    .send(Message::Abort("info not 12 len".to_owned()))
+                    .unwrap();
+                return;
+            }
+            if info[0][5] != String::from("exported with version") {
+                external_sender
+                    .send(Message::Abort("no version info".to_owned()))
+                    .unwrap();
+                return;
+            }
+            let selection = info[1][11]
+                .split(" ")
+                .collect::<Vec<&str>>()
+                .iter()
+                .map(|s| {
+                    s.split("-")
+                        .collect::<Vec<&str>>()
+                        .iter()
+                        .map(|n| n.parse::<f64>().unwrap())
+                        .collect::<Vec<f64>>()
+                })
+                .collect::<Vec<Vec<f64>>>();
+            file_lists.push(DataInfo {
+                path: file.file_name().unwrap().to_str().unwrap().to_owned(),
+                raw: RawData::parse_file(file, selection).unwrap(),
+            });
+            external_sender.send(Message::Done(file_lists)).unwrap();
+        });
+    }
+
+    pub fn start_get_data_from_dir<
+        P: AsRef<Path> + std::marker::Send + 'static,
+    >(
         &self,
         input_dir: P,
     ) {
@@ -264,7 +320,7 @@ impl RawData {
             .drop_nulls(None)
             .collect()?;
 
-        let gait_ranges = contact_df
+        let gait = contact_df
             .clone()
             .lazy()
             .select([col("time"), col("DB_S")])
@@ -276,7 +332,8 @@ impl RawData {
             .into_no_null_iter()
             // get every 2 db
             .step_by(2)
-            .collect::<Vec<f64>>()
+            .collect::<Vec<f64>>();
+        let gait_ranges = gait
             // create start end
             .windows(2)
             .map(|s| s.to_vec())
@@ -291,6 +348,10 @@ impl RawData {
                 false
             })
             .collect::<Vec<Vec<f64>>>();
+        let gait_gaps = gait_ranges
+            .iter()
+            .map(|v| v[1] - v[0])
+            .collect::<Vec<f64>>();
         let db_gaps = get_support_range(contact_df.clone(), "DB", &selections)?
             .into_iter()
             .map(|v| v[1] - v[0])
@@ -334,6 +395,7 @@ impl RawData {
         Ok(Self {
             x,
             y,
+            selections,
             l_contact: raw_df
                 .column("Noraxon MyoMotion-Segments-Foot LT-Contact")?
                 .i64()?
@@ -344,6 +406,7 @@ impl RawData {
                 .i64()?
                 .into_no_null_iter()
                 .collect::<Vec<i64>>(),
+            gait: (gait, get_quantile(&gait_gaps)?),
             db: get_quantile(&db_gaps)?,
             lt: get_quantile(&lt_gaps)?,
             rt: get_quantile(&rt_gaps)?,

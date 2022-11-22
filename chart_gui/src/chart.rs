@@ -2,7 +2,9 @@ use std::sync::{Arc, Mutex};
 
 use eframe::egui::{
     self,
-    plot::{BoxElem, BoxPlot, BoxSpread, Legend, Line, Plot, PlotPoints},
+    plot::{
+        BoxElem, BoxPlot, BoxSpread, Legend, Line, Plot, PlotPoints, VLine,
+    },
     ScrollArea,
 };
 
@@ -11,12 +13,27 @@ use crate::{
     data_process::{DataInfo, Manager, Message},
 };
 
+#[derive(PartialEq)]
+enum BoxData {
+    MinMax,
+    Support,
+}
+
 pub struct State {
     pub show_side_panel: bool,
     pub unprocess_dialog: bool,
     show_process_win: bool,
     show_boxplot: bool,
+    box_data: BoxData,
+    show_min: bool,
+    show_max: bool,
+    show_gait: bool,
+    show_db: bool,
+    show_lt: bool,
+    show_rt: bool,
     show_lineplot: bool,
+    show_gait_line: bool,
+    show_contact: bool,
 }
 
 pub struct Chart {
@@ -45,7 +62,16 @@ impl Chart {
                 unprocess_dialog: false,
                 show_process_win: false,
                 show_boxplot: false,
+                box_data: BoxData::MinMax,
+                show_min: true,
+                show_max: true,
+                show_gait: true,
+                show_db: true,
+                show_lt: true,
+                show_rt: true,
                 show_lineplot: false,
+                show_gait_line: true,
+                show_contact: true,
             },
         }
     }
@@ -53,11 +79,18 @@ impl Chart {
     pub fn open_dir(&mut self) {
         if let Some(path) = rfd::FileDialog::new().pick_folder() {
             self.state.show_process_win = true;
-            self.manager.start_get_data(path);
+            self.manager.start_get_data_from_dir(path);
         }
     }
 
-    pub fn close_dir(&mut self) {
+    pub fn open_file(&mut self) {
+        if let Some(path) = rfd::FileDialog::new().pick_file() {
+            self.state.show_process_win = true;
+            self.manager.start_get_data_from_file(path);
+        }
+    }
+
+    pub fn close_all(&mut self) {
         self.manager.clear_message();
     }
 }
@@ -71,29 +104,33 @@ impl super::View for Chart {
         }
         egui::CentralPanel::default().show(ctx, |ui| {
             if !self.state.show_boxplot && !self.state.show_lineplot {
+                let msg = if self.file_selects.len() == 0 {
+                    "Please select one file"
+                } else {
+                    "Please select one chart"
+                };
                 ui.centered_and_justified(|ui| {
-                    ui.label("Please select one chart");
+                    ui.label(msg);
                 });
             }
             let egui::Vec2 { x, y } = ui.available_size();
-            let size = egui::vec2(x, y / 2.);
+            let size = egui::vec2(
+                x,
+                if self.state.show_boxplot && self.state.show_lineplot {
+                    y / 2.
+                } else {
+                    y
+                },
+            );
             if self.state.show_boxplot {
-                egui::Resize::default()
-                    .id_source("boxplot")
-                    .default_size(size)
-                    .max_size([x, y])
-                    .show(ui, |ui| {
-                        box_plot(self, ui);
-                    });
+                ui.allocate_ui(size, |ui| {
+                    box_plot(self, ui);
+                });
             }
             if self.state.show_lineplot {
-                egui::Resize::default()
-                    .id_source("lineplot")
-                    .default_size(size)
-                    .max_size([x, y])
-                    .show(ui, |ui| {
-                        line_plot(self, ui);
-                    });
+                ui.allocate_ui(size, |ui| {
+                    line_plot(self, ui);
+                });
             }
         });
 
@@ -125,10 +162,10 @@ impl super::View for Chart {
                     });
                     match &*self.result.lock().unwrap() {
                         Message::Running(progress, msg) => {
-                            ui.label(format!("Processing: {}", msg));
                             ui.add(
                                 egui::ProgressBar::new(*progress).animate(true),
                             );
+                            ui.label(format!("Processing: {}", msg));
                             ui.vertical_centered(|ui| {
                                 if ui.button("Cancel").clicked() {
                                     self.manager.stop();
@@ -161,6 +198,17 @@ fn box_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
         result,
         pos,
         var,
+        state:
+            State {
+                box_data,
+                show_min,
+                show_max,
+                show_gait,
+                show_db,
+                show_lt,
+                show_rt,
+                ..
+            },
         ..
     } = app;
     let result = &*result.lock().unwrap();
@@ -171,7 +219,6 @@ fn box_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
         }
     };
     Plot::new("Box Plot")
-        .include_x(0.)
         .legend(
             Legend::default()
                 .position(egui::plot::Corner::RightBottom)
@@ -187,30 +234,104 @@ fn box_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
                     &f.raw.y.get(pos).unwrap().get(var).unwrap();
                 let min_t = min_q.to_tuple();
                 let max_t = max_q.to_tuple();
+                let mut box_elems = Vec::new();
+                match box_data {
+                    BoxData::MinMax => {
+                        if *show_min {
+                            box_elems.push(
+                                BoxElem::new(
+                                    i,
+                                    BoxSpread::new(
+                                        min_t.0, min_t.1, min_t.2, min_t.3,
+                                        min_t.4,
+                                    ),
+                                )
+                                .box_width(0.1)
+                                .whisker_width(0.1)
+                                .name("Min Quantile"),
+                            )
+                        }
+                        if *show_max {
+                            box_elems.push(
+                                BoxElem::new(
+                                    i,
+                                    BoxSpread::new(
+                                        max_t.0, max_t.1, max_t.2, max_t.3,
+                                        max_t.4,
+                                    ),
+                                )
+                                .box_width(0.1)
+                                .whisker_width(0.1)
+                                .name("Max Quantile"),
+                            )
+                        }
+                    }
+                    BoxData::Support => {
+                        if *show_gait {
+                            let gait = &f.raw.gait.1.to_tuple();
+                            box_elems.push(
+                                BoxElem::new(
+                                    i,
+                                    BoxSpread::new(
+                                        gait.0, gait.1, gait.2, gait.3, gait.4,
+                                    ),
+                                )
+                                .box_width(0.1)
+                                .whisker_width(0.1)
+                                .name("Gait Quantile"),
+                            );
+                        }
+                        if *show_db {
+                            let db = &f.raw.db.to_tuple();
+                            box_elems.push(
+                                BoxElem::new(
+                                    i + 0.3,
+                                    BoxSpread::new(
+                                        db.0, db.1, db.2, db.3, db.4,
+                                    ),
+                                )
+                                .box_width(0.1)
+                                .whisker_width(0.1)
+                                .name("Double Support Quantile"),
+                            );
+                        }
+                        if *show_lt {
+                            let lt = &f.raw.lt.to_tuple();
+                            box_elems.push(
+                                BoxElem::new(
+                                    i + 0.6,
+                                    BoxSpread::new(
+                                        lt.0, lt.1, lt.2, lt.3, lt.4,
+                                    ),
+                                )
+                                .box_width(0.1)
+                                .whisker_width(0.1)
+                                .name("Left Single Support Quantile"),
+                            );
+                        }
+                        if *show_rt {
+                            let rt = &f.raw.rt.to_tuple();
+                            box_elems.push(
+                                BoxElem::new(
+                                    i + 0.9,
+                                    BoxSpread::new(
+                                        rt.0, rt.1, rt.2, rt.3, rt.4,
+                                    ),
+                                )
+                                .box_width(0.1)
+                                .whisker_width(0.1)
+                                .name("Right Single Support Quantile"),
+                            );
+                        }
+                    }
+                }
                 plot_ui.box_plot(
-                    BoxPlot::new(vec![
-                        BoxElem::new(
-                            i + 0.,
-                            BoxSpread::new(
-                                min_t.0, min_t.1, min_t.2, min_t.3, min_t.4,
-                            ),
-                        )
-                        .box_width(0.1)
-                        .whisker_width(0.1)
-                        .name("min"),
-                        BoxElem::new(
-                            i + 1.,
-                            BoxSpread::new(
-                                max_t.0, max_t.1, max_t.2, max_t.3, max_t.4,
-                            ),
-                        )
-                        .box_width(0.1)
-                        .whisker_width(0.1)
-                        .name("max"),
-                    ])
-                    .name(&*f.path),
+                    BoxPlot::new(box_elems).horizontal().name(&*f.path),
                 );
-                i += 0.1;
+                match box_data {
+                    BoxData::MinMax => i += 0.1,
+                    BoxData::Support => i += 0.1,
+                };
             }
         });
 }
@@ -220,6 +341,12 @@ fn line_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
         pos,
         var,
         result,
+        state:
+            State {
+                show_gait_line,
+                show_contact,
+                ..
+            },
         ..
     } = app;
     let result = &*result.lock().unwrap();
@@ -235,8 +362,6 @@ fn line_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
                 .position(egui::plot::Corner::RightBottom)
                 .text_style(egui::TextStyle::Small),
         )
-        .include_x(0.)
-        .include_y(0.)
         .show(ui, |plot_ui| {
             for (f, selected) in v.into_iter().zip(file_selects.into_iter()) {
                 if !*selected {
@@ -244,8 +369,17 @@ fn line_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
                 }
                 let (x, (y, min_q, max_q)) =
                     (&f.raw.x, &f.raw.y.get(pos).unwrap().get(var).unwrap());
-                plot_ui.line(
-                    Line::new(
+                if *show_gait_line {
+                    for value in f.raw.gait.0.iter() {
+                        plot_ui.vline(
+                            VLine::new(*value)
+                                .color(egui::Color32::GRAY)
+                                .style(egui::plot::LineStyle::dotted_dense()),
+                        );
+                    }
+                }
+                if *show_contact {
+                    let line = Line::new(
                         x.into_iter()
                             .zip((&f.raw.l_contact).into_iter())
                             .map(|(a, b)| {
@@ -261,10 +395,9 @@ fn line_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
                     .fill(min_q.min() as f32)
                     .color(egui::Color32::LIGHT_BLUE)
                     .width(0.)
-                    .name("L Contact"),
-                );
-                plot_ui.line(
-                    Line::new(
+                    .name("L Contact");
+                    plot_ui.line(line);
+                    let line = Line::new(
                         x.into_iter()
                             .zip((&f.raw.r_contact).into_iter())
                             .map(|(a, b)| {
@@ -280,8 +413,9 @@ fn line_plot(app: &mut Chart, ui: &mut eframe::egui::Ui) {
                     .fill(min_q.min() as f32)
                     .color(egui::Color32::LIGHT_GREEN)
                     .width(0.)
-                    .name("R Contact"),
-                );
+                    .name("R Contact");
+                    plot_ui.line(line);
+                }
                 let data: PlotPoints = x
                     .into_iter()
                     .zip(y.into_iter())
@@ -302,6 +436,15 @@ fn side_panel_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
             State {
                 show_boxplot,
                 show_lineplot,
+                box_data,
+                show_min,
+                show_max,
+                show_gait,
+                show_db,
+                show_lt,
+                show_rt,
+                show_gait_line,
+                show_contact,
                 ..
             },
         ..
@@ -330,26 +473,57 @@ fn side_panel_ui(app: &mut Chart, ui: &mut eframe::egui::Ui) {
                     });
                 });
             ui.end_row();
-            ui.heading("Plots");
-            ui.end_row();
-            ui.label("show box plots: ");
-            ui.vertical(|ui| {
-                ui.checkbox(show_boxplot, "show box plot");
+        });
+    ui.separator();
+    egui::CollapsingHeader::new("Box plot")
+        .default_open(true)
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label("Enable");
+                ui.checkbox(show_boxplot, "");
             });
-            ui.end_row();
-            ui.label("show line plot: ");
-            ui.vertical(|ui| {
-                ui.checkbox(show_lineplot, "show line plot");
+            ui.horizontal(|ui| {
+                ui.label("Data");
+                ui.radio_value(box_data, BoxData::MinMax, "min max");
+                ui.radio_value(box_data, BoxData::Support, "support");
             });
-            ui.end_row();
-            if ui.button("reset").clicked() {
-                ui.ctx().memory().reset_areas();
+            match box_data {
+                BoxData::MinMax => {
+                    ui.label("Options");
+                    ui.horizontal(|ui| {
+                        ui.toggle_value(show_min, "min");
+                        ui.toggle_value(show_max, "max");
+                    });
+                }
+                BoxData::Support => {
+                    ui.label("Options");
+                    ui.horizontal(|ui| {
+                        ui.toggle_value(show_gait, "Gait");
+                        ui.toggle_value(show_db, "DB");
+                        ui.toggle_value(show_lt, "LT");
+                        ui.toggle_value(show_rt, "RT");
+                    });
+                }
             }
         });
-    ui.add_space(4.0);
+    egui::CollapsingHeader::new("Line plot")
+        .default_open(true)
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label("Enable");
+                ui.checkbox(show_lineplot, "");
+            });
+            ui.horizontal(|ui| {
+                ui.label("Gait line");
+                ui.checkbox(show_gait_line, "");
+            });
+            ui.horizontal(|ui| {
+                ui.label("Support");
+                ui.checkbox(show_contact, "");
+            });
+        });
     ui.separator();
-    ui.add_space(4.0);
-    ui.heading("File List");
+    ui.heading("File Lists");
     ui.group(|ui| {
         ScrollArea::horizontal()
             .vscroll(true)
