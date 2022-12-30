@@ -159,6 +159,7 @@ impl super::View for Chart {
                 .show(ctx, |ui| {
                     ui.vertical_centered(|ui| {
                         ui.heading("Preprocessing");
+                        ui.separator();
                     });
                     match &*self.result.lock().unwrap() {
                         Message::Running(progress, msg) => {

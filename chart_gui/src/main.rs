@@ -15,6 +15,7 @@ fn main() {
     let options = eframe::NativeOptions {
         // initial_window_size: Some(egui::Vec2 { x: 400., y: 160. }),
         drag_and_drop_support: true,
+        renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
     eframe::run_native(
